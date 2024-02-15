@@ -300,3 +300,8 @@ $RECYCLE.BIN/
 
 # End of https://www.toptal.com/developers/gitignore/api/macos,osx,vim,rust,rust-analyzer,windows,linux,python
 
+
+
+# Added by cargo
+
+/target
