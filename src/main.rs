@@ -1,6 +1,9 @@
 mod args;
+mod config;
+
 use clap::Parser;
 use args::*;
+use config::*;
 
 fn main() {
     let args = MusicPlayerArgs::parse();

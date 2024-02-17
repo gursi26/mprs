@@ -56,12 +56,22 @@ pub struct CreateArgs {
     pub playlist_name: String,
 }
 
+// -s controls whether song ordering is shuffled or not
+// If -s is used without -p, searches all downloaded songs for s, returns top 5 
+// If -p is used without -s, plays entire playlist
+// If both -p and -s are used, returns top 5 matches for s in p, then proceeds to play rest of p
 #[derive(Debug, Args)]
 pub struct PlayArgs {
     /// The playlist to be played
-    #[arg(short = 'p', long = "playlist", default_value = "liked")]
-    pub playlist: String,
+    #[arg(short = 'p', long = "playlist", default_value = None)]
+    pub playlist: Option<String>,
 
+    /// If specified, plays the first song that matches the query_term, and then the rest of the
+    /// playlist
+    #[arg(short = 'q', long = "query-term", default_value = None)]
+    pub query_term: Option<String>,
+
+    /// Include this flag to shuffle play order
     #[arg(short = 's', long = "shuffle", action = ArgAction::SetTrue)]
     pub shuffle: bool
 }
