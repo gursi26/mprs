@@ -19,7 +19,7 @@ pub enum ActionType {
     Create(CreateArgs),
 
     /// Plays a specific playlist (or "liked" if no playlist specified)
-    Play(PlayArgs)
+    Play(PlayArgs),
 }
 
 #[derive(Debug, Args)]
