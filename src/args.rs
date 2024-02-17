@@ -33,7 +33,7 @@ pub struct AddArgs {
     pub playlist: String,
 
     /// The number of search results to display
-    #[arg(short = 'c', long = "count")]
+    #[arg(short = 'c', long = "count", default_value_t = 10)]
     pub count: i8
 }
 
