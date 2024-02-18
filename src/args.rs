@@ -1,16 +1,16 @@
-use clap::{Args, Parser, Subcommand, ArgAction};
+use clap::{ArgAction, Args, Parser, Subcommand};
 
 #[derive(Debug, Parser)]
 #[clap(author, version, about)]
 pub struct MusicPlayerArgs {
     #[clap(subcommand)]
-    pub action_type: ActionType
+    pub action_type: ActionType,
 }
 
 #[derive(Debug, Subcommand)]
 pub enum ActionType {
     /// Adds a song to a specified playlist (or to "liked" if no playlist specified)
-    Add(AddArgs), 
+    Add(AddArgs),
 
     /// Removed a song from a specified playlist (or "liked" if no playlist specified)
     Remove(RemoveArgs),
@@ -34,7 +34,7 @@ pub struct AddArgs {
 
     /// The number of search results to display
     #[arg(short = 'c', long = "count", default_value_t = 10)]
-    pub count: i8
+    pub count: i8,
 }
 
 #[derive(Debug, Args)]
@@ -57,7 +57,7 @@ pub struct CreateArgs {
 }
 
 // -s controls whether song ordering is shuffled or not
-// If -s is used without -p, searches all downloaded songs for s, returns top 5 
+// If -s is used without -p, searches all downloaded songs for s, returns top 5
 // If -p is used without -s, plays entire playlist
 // If both -p and -s are used, returns top 5 matches for s in p, then proceeds to play rest of p
 #[derive(Debug, Args)]
@@ -73,5 +73,5 @@ pub struct PlayArgs {
 
     /// Include this flag to shuffle play order
     #[arg(short = 's', long = "shuffle", action = ArgAction::SetTrue)]
-    pub shuffle: bool
+    pub shuffle: bool,
 }
