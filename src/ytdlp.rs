@@ -54,6 +54,7 @@ pub fn download(
     audio_format: &String,
     dest: &PathBuf
 ) -> bool {
+    println!("Downloading...");
     let output = Command::new("yt-dlp")
         .arg("-x")
         .arg("--audio-format")

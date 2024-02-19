@@ -12,6 +12,7 @@ use args::*;
 use clap::Parser;
 use config::{init_config, parse_config_file, UserConfig};
 use ytdlp::{search_ytdlp, download};
+use std::io::{stdout, Write};
 
 
 fn main() {
@@ -42,7 +43,8 @@ fn mprs_add(args: &AddArgs, config: &UserConfig) {
     let (id_vec, results_vec) = search_ytdlp(&args.query_term, args.count);
     print_table(&results_vec);
 
-    println!("Enter number for song to download: ");
+    print!("Select song by number : ");
+    let _ = stdout().flush();
 
     let mut input_string = String::new();
     std::io::stdin().read_line(&mut input_string).unwrap();
@@ -51,7 +53,9 @@ fn mprs_add(args: &AddArgs, config: &UserConfig) {
     let mut save_path = config.base_dir.clone();
     save_path.push(&args.playlist);
 
-    download(&id_vec[(id_idx - 1) as usize], &config.audio_format, &save_path);
+    if download(&id_vec[(id_idx - 1) as usize], &config.audio_format, &save_path) {
+        println!("Successfully downloaded.");
+    }
 
 }
 
