@@ -6,7 +6,7 @@ static N_OUTPUT_ITEMS: i8 = 5;
 pub fn search_ytdlp(
     query: &String,
     n_results: i8,
-) -> (Vec<String>, Vec<(String, String, String, String)>) {
+) -> (Vec<String>, Vec<Vec<String>>) {
     let output = Command::new("yt-dlp")
         .arg(query)
         .arg("--get-title")
@@ -25,7 +25,14 @@ pub fn search_ytdlp(
     let parts = string_output.split("\n").collect::<Vec<&str>>();
 
     let mut id_vec: Vec<String> = Vec::new();
-    let mut search_results: Vec<(String, String, String, String)> = Vec::new();
+    let mut search_results: Vec<Vec<String>> = Vec::new();
+
+    search_results.push(vec![
+        String::from("Name"),
+        String::from("Artist"),
+        String::from("Duration"),
+        String::from("Upload Date"),
+    ]);
 
     for i in 0..n_results {
         let artist = String::from(parts[(N_OUTPUT_ITEMS * i) as usize]);
@@ -42,7 +49,7 @@ pub fn search_ytdlp(
         );
 
         id_vec.push(id);
-        search_results.push((name, artist, duration, formatted_upload_date));
+        search_results.push(vec![name, artist, duration, formatted_upload_date]);
     }
 
     (id_vec, search_results)
