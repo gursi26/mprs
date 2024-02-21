@@ -25,7 +25,7 @@ pub enum ActionType {
 #[derive(Debug, Args)]
 pub struct AddArgs {
     /// The search term for the song to be added
-    #[arg(short = 'q', long = "query-term")]
+    #[arg()]
     pub query_term: String,
 
     /// The playlist to add the song to

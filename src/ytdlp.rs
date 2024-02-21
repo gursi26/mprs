@@ -7,7 +7,6 @@ pub fn search_ytdlp(
     query: &String,
     n_results: i8,
 ) -> (Vec<String>, Vec<(String, String, String, String)>) {
-    println!("Query: {}\nNumber of results: {}", query, n_results);
     let output = Command::new("yt-dlp")
         .arg(query)
         .arg("--get-title")
@@ -49,7 +48,7 @@ pub fn search_ytdlp(
     (id_vec, search_results)
 }
 
-pub fn download(
+pub fn ytdlp_download(
     video_id: &String,
     audio_format: &String,
     dest: &PathBuf
