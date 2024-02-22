@@ -10,10 +10,13 @@ use std::thread;
 use std::time;
 use rand::thread_rng;
 use rand::seq::SliceRandom;
+use std::time::Instant;
 
 use termion;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
+
+static TIME_UNTIL_BACK_SELF: u64 = 3;
 
 pub fn mprs_play(args: &PlayArgs, config: &UserConfig) {
     let mut playlists = list_dir(&config.base_dir);
@@ -112,6 +115,7 @@ pub fn mprs_play(args: &PlayArgs, config: &UserConfig) {
             .kill_on_drop(true)
             .spawn()
             .unwrap();
+        let time_since_start = Instant::now();
 
         quit_flag = false;
 
@@ -130,7 +134,10 @@ pub fn mprs_play(args: &PlayArgs, config: &UserConfig) {
                     }
                     termion::event::Key::Char('b') => {
                         drop(cmd);
-                        i = i - 2;
+                        i = i - 1;
+                        if time_since_start.elapsed().as_secs() < TIME_UNTIL_BACK_SELF {
+                            i = i - 1
+                        }
                         break;
                     }
                     _ => {}
