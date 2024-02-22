@@ -1,16 +1,16 @@
+use crate::actions::remove;
 use crate::args::RemoveArgs;
 use crate::config::UserConfig;
-use std::io::{stdout, Write};
+use std::io::{stdout, Write, stdin};
 use mprs::utils;
-use mprs::utils::print_table;
-use std::fs;
-use std::io;  // might be necessary
+use mprs::utils::{print_table, list_dir};
+use std::fs::remove_file;
+use std::io;
 use std::path::Path;
 use prettytable::{Table, Cell, Row};  // should this be in utils?
 
-pub fn mprs_remove(args: &RemoveArgs, config: &UserConfig) {
-    // NOTE: I probably confirm that the playlist exists before attempting to remove a song from it.
-
+pub fn mprs_remove(args: &RemoveArgs, config: &UserConfig) 
+{
     println!("\nDEBUG INFO:");
     println!("{:?}", config);
     println!("{:?}", args);
@@ -23,43 +23,68 @@ pub fn mprs_remove(args: &RemoveArgs, config: &UserConfig) {
         query, args.playlist
     );
 
-    let mut playlist_path = config.base_dir.clone();
-    // let playlist_path = &config.base_dir;
-    playlist_path.push(&args.playlist);
-    println!("Playlist path: {:?}", playlist_path);
+    // Confirm that the playlist exists before attempting to remove a song from it.
+    let mut playlists = list_dir(&config.base_dir);
+
+    let mut selected_playlist = config.base_dir.clone();
+    selected_playlist.push(&args.playlist.clone());
+    
+    if !playlists.contains(&selected_playlist) {
+        println!("Playlist {:?} does not exist.\nThere is thus nothing to remove.", selected_playlist);
+        return;
+    }
+
+    println!("Playlist path: {:?}", selected_playlist);
+
+    // Using utils, get path of all songs in playlist and store in a vector.
+    let paths = list_dir(&selected_playlist.to_owned());
 
     // Declare index representing which song to delete (assigned via user input if no query term is given).
     let id_idx: i32;
 
     // Print all songs in playlist and let user decide which to remove.
     if query == "None" {
-        let mut table = Table::new();
-        let mut row_vec: Vec<Cell>;
+        let mut table_content = vec![vec!["Song Title".to_string()]];
+        for path in &paths {
+            let song_title = Path::new(path.file_stem().unwrap()).file_name().unwrap().to_os_string();
+            table_content.push(vec![song_title.to_str().unwrap().to_string()]);
+        }
+        print_table(&table_content);
 
-        // IO copied from add.rs
+        // Get user input for which song to remove.
+        let mut input_string = String::new();
         print!("Select song to remove by number : ");
         let _ = stdout().flush();
-
-        let mut input_string = String::new();
         std::io::stdin().read_line(&mut input_string).unwrap();
-        let id_idx: i32 = input_string.trim().parse().unwrap();
-
+        // Convert user input to i32 and store in id_idx.
+        id_idx = input_string.trim().parse().unwrap();
     }
 
-    // Using utils
-    let paths = utils::list_dir(&playlist_path.to_owned());
-    println!("\nSongs in playlist \"{}\": ", args.playlist);
-    for path in paths {
-        println!("Name: {}", path.display())
+    // Set id_idx to remove first song from playlist matching query term.
+    else {  // User has provided a query term indicating a song to remove
+        let mut start_index = -1;
+        for (i, x) in paths.iter().enumerate() {
+            if x.as_path()
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_lowercase()
+                .contains(&query.to_lowercase()[..])
+            {
+                start_index = i as i32;
+            }
+        }
+        // Set id_idx accordingly
+        id_idx = start_index;
+
+        if start_index == -1 {
+            println!("\"{}\" not found in playlist \"{:?}\"", query, selected_playlist);
+        }
     }
 
-    // TODO: figure out how to print the number of songs in a playlist if no query term is given
+    let removed_song = &paths[(id_idx - 1) as usize];
+    println!("Removed song: {:?}", removed_song);
 
-    // Example remove command:
-    // Ref: https://doc.rust-lang.org/std/fs/fn.remove_file.html#:~:text=Function%20std%3A%3Afs%3A%3Aremove_file&text=Removes%20a%20file%20from%20the,descriptors%20may%20prevent%20immediate%20removal).
-    // fs::remove_file("liked/1.mp3").unwrap();
-
-    // paths[(id_idx - 1) as usize];
-    return;
-
+    remove_file(removed_song.to_owned()).unwrap();
 }
