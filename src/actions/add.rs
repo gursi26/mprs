@@ -5,10 +5,8 @@ use std::io::{stdout, Write};
 use mprs::utils::print_table;
 
 pub fn mprs_add(args: &AddArgs, config: &UserConfig) {
-    // println!("{:?}", config);
-    // println!("{:?}", args);
     println!(
-        "Query: {}\nNumber of results: {}\nPlaylist: {}",
+        "Query: \"{}\"\nNumber of results: {}\nPlaylist: {}",
         args.query_term, args.count, args.playlist
     );
 

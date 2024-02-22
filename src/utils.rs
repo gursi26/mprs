@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 use dirs::home_dir;
 use prettytable::{Table, Cell, Row};
+use std::fs::read_dir;
 
 pub fn config_path() -> PathBuf {
     let mut config_path = home_dir().unwrap();
@@ -14,6 +15,13 @@ pub fn base_dir() -> PathBuf {
     let mut base_dir = home_dir().unwrap();
     base_dir.push("mprs-music");
     base_dir
+}
+
+pub fn list_dir(path: &PathBuf) -> Vec<PathBuf> {
+    read_dir(path)
+        .unwrap()
+        .map(|i| i.unwrap().path())
+        .collect()
 }
 
 pub fn print_table(table_content: &Vec<Vec<String>>) {
