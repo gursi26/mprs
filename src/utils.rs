@@ -3,6 +3,7 @@ use dirs::home_dir;
 use prettytable::{Table, Cell, Row};
 use std::fs::read_dir;
 
+
 pub fn config_path() -> PathBuf {
     let mut config_path = home_dir().unwrap();
     config_path.push(".config");
@@ -18,10 +19,12 @@ pub fn base_dir() -> PathBuf {
 }
 
 pub fn list_dir(path: &PathBuf) -> Vec<PathBuf> {
-    read_dir(path)
+    let mut files: Vec<PathBuf> = read_dir(path)
         .unwrap()
         .map(|i| i.unwrap().path())
-        .collect()
+        .collect();
+    files.retain(|x| x.as_path().file_name().unwrap().to_str().unwrap() != ".DS_Store");
+    files
 }
 
 pub fn print_table(table_content: &Vec<Vec<String>>) {
@@ -40,3 +43,4 @@ pub fn print_table(table_content: &Vec<Vec<String>>) {
     }
     table.printstd();
 }
+
