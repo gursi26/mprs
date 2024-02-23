@@ -1,30 +1,30 @@
 use crate::args::PlayArgs;
 use crate::config::UserConfig;
 use async_process::Command;
+use lofty::{read_from_path, AudioFile};
 use mprs::utils::{base_dir, list_dir};
+use rand::seq::SliceRandom;
+use rand::thread_rng;
+use rodio::source::{SineWave, Source};
+use rodio::{Decoder, OutputStream, Sink};
+use std::fs::File;
 use std::fs::{read_dir, DirEntry};
 use std::io;
+use std::io::BufReader;
 use std::io::{stdout, Write};
 use std::path::{Path, PathBuf};
 use std::thread;
 use std::time;
-use rand::thread_rng;
-use rand::seq::SliceRandom;
-use std::time::Instant;
-use std::fs::File;
-use std::io::BufReader;
 use std::time::Duration;
-use rodio::{Decoder, OutputStream, Sink};
-use rodio::source::{SineWave, Source};
-use lofty::{read_from_path, AudioFile};
+use std::time::Instant;
 use stopwatch::Stopwatch;
 
-use crate::utils::{UserInput, get_input_key, get_instruction_string, get_duration};
+use crate::utils::{get_duration, get_input_key, get_instruction_string, UserInput};
 
+use anyhow::Result;
 use termion;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
-use anyhow::Result;
 
 use crossterm::{
     execute,
@@ -38,6 +38,7 @@ static TIME_UNTIL_BACK_SELF: u64 = 3;
 struct App {
     songs: Vec<(String, String, String)>,
     curr_song: String,
+    curr_playlist: String,
     start_time: Stopwatch,
     end_of_song: bool,
     percent_of_song_complete: f64,
@@ -69,7 +70,8 @@ fn ui(app: &App, frame: &mut Frame) {
             Constraint::Min(0),
             Constraint::Length(1),
         ],
-    ).split(frame.size());
+    )
+    .split(frame.size());
     frame.render_widget(
         Block::new().borders(Borders::TOP).title("mprs"),
         main_layout[0],
@@ -90,12 +92,20 @@ fn ui(app: &App, frame: &mut Frame) {
     let visualizer_layout = Layout::new(
         Direction::Horizontal,
         [Constraint::Percentage(30), Constraint::Percentage(70)],
-    ).split(inner_layout[1]);
+    )
+    .split(inner_layout[1]);
 
     let mut rows: Vec<Row> = Vec::new();
-    for (i, x) in app.songs.iter().enumerate() {
+    rows.push(Row::new(vec![
+            String::from("        \u{25b6}"),
+            app.songs[0].0.clone(),
+            app.songs[0].1.clone(),
+            app.songs[0].2.clone(),
+        ]).style(Style::new().blue().bold()));
+
+    for (i, x) in app.songs.iter().skip(1).enumerate() {
         rows.push(Row::new(vec![
-            (i + 1).to_string(),
+            format!("{}", i + 1),
             x.0.clone(),
             x.1.clone(),
             x.2.clone(),
@@ -124,25 +134,45 @@ fn ui(app: &App, frame: &mut Frame) {
     let now_playing_layout = Layout::new(
         Direction::Vertical,
         [Constraint::Percentage(60), Constraint::Percentage(40)],
-    ).split(visualizer_layout[0]);
+    )
+    .split(visualizer_layout[0]);
 
     let seconds = app.curr_song_adjusted_duration;
-    let s1 = format!("{}:{:0>2}", seconds/60, seconds - ((seconds/60) * 60) );
+    let s1 = format!("{}:{:0>2}", seconds / 60, seconds - ((seconds / 60) * 60));
     let elapsed = app.start_time.elapsed().as_secs();
-    let s2 = format!("{}:{:0>2}", elapsed/60, elapsed - ((elapsed/60) * 60) );
+    let s2 = format!("{}:{:0>2}", elapsed / 60, elapsed - ((elapsed / 60) * 60));
     frame.render_widget(
         Gauge::default()
             .block(Block::default().borders(Borders::ALL))
-            .ratio(app.percent_of_song_complete)
+            .ratio(app.percent_of_song_complete.clamp(0.0, 1.0))
             .label(format!("{} / {}", s2, s1))
             .use_unicode(true),
         now_playing_layout[1],
     );
 
+    let text = vec![
+        Line::from(format!("{}", app.curr_song.clone()))
+            .style(Style::new().yellow().bold())
+            .centered(),
+        Line::from(" "),
+        Line::from(format!("Playlist : {}", app.curr_playlist.clone()))
+            .style(Style::new())
+            .centered(),
+    ];
+
     frame.render_widget(
-        Paragraph::new(app.curr_song.clone())
-            .block(Block::new().title("Now Playing").borders(Borders::ALL)),
-        now_playing_layout[0]
+        Paragraph::new(text).wrap(Wrap { trim: true }).block(
+            Block::new()
+                .title("Now Playing")
+                .borders(Borders::ALL)
+                .padding(Padding {
+                    left: 2,
+                    right: 2,
+                    top: 1,
+                    bottom: 1,
+                }),
+        ),
+        now_playing_layout[0],
     );
 
     frame.render_widget(
@@ -156,10 +186,21 @@ fn table_from_song_queue(song_queue: &[PathBuf]) -> Vec<(String, String, String)
     for p in song_queue.iter() {
         let song_path = p.clone();
         let song_name = song_path.as_path().file_name().unwrap().to_str().unwrap();
-        let playlist_name = song_path.as_path().parent().unwrap().file_name().unwrap().to_str().unwrap();
+        let playlist_name = song_path
+            .as_path()
+            .parent()
+            .unwrap()
+            .file_name()
+            .unwrap()
+            .to_str()
+            .unwrap();
         let seconds = get_duration(&song_path);
-        let duration_str = format!("{}:{:0>2}", seconds/60, seconds - ((seconds/60) * 60) );
-        output_vec.push((String::from(song_name), String::from(playlist_name), duration_str));
+        let duration_str = format!("{}:{:0>2}", seconds / 60, seconds - ((seconds / 60) * 60));
+        output_vec.push((
+            String::from(song_name),
+            String::from(playlist_name),
+            duration_str,
+        ));
     }
     output_vec
 }
@@ -167,7 +208,8 @@ fn table_from_song_queue(song_queue: &[PathBuf]) -> Vec<(String, String, String)
 fn update(app: &mut App, sink: &Sink, curr_idx: &mut i32, song_queue: &Vec<PathBuf>) -> Result<()> {
     app.curr_song_adjusted_duration = (app.curr_song_base_duration as f32 / app.curr_speed) as u64;
     app.songs = table_from_song_queue(&song_queue[((*curr_idx as usize) - 1)..]);
-    app.percent_of_song_complete = app.start_time.elapsed().as_secs() as f64 / app.curr_song_adjusted_duration as f64;
+    app.percent_of_song_complete =
+        app.start_time.elapsed().as_secs() as f64 / app.curr_song_adjusted_duration as f64;
     sink.set_speed(app.curr_speed);
     sink.set_volume(app.curr_volume);
     match get_input_key() {
@@ -211,6 +253,7 @@ fn run(sink: &Sink, song_queue: Vec<PathBuf>) -> Result<()> {
     let mut app = App {
         songs: Vec::new(),
         curr_song: String::new(),
+        curr_playlist: String::new(),
         start_time: Stopwatch::start_new(),
         curr_speed: 1.0,
         curr_volume: 1.0,
@@ -219,7 +262,7 @@ fn run(sink: &Sink, song_queue: Vec<PathBuf>) -> Result<()> {
         should_quit: false,
         curr_song_base_duration: 0,
         curr_song_adjusted_duration: 0,
-        percent_of_song_complete: 0.0
+        percent_of_song_complete: 0.0,
     };
 
     let mut i: i32 = 0;
@@ -233,7 +276,22 @@ fn run(sink: &Sink, song_queue: Vec<PathBuf>) -> Result<()> {
             app.start_time = Stopwatch::start_new();
             app.curr_song_base_duration = get_duration(curr_song);
             app.curr_song_adjusted_duration = app.curr_song_base_duration;
-            app.curr_song = curr_song.as_path().file_name().unwrap().to_str().unwrap().to_string();
+            app.curr_song = curr_song
+                .as_path()
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_string();
+            app.curr_playlist = curr_song
+                .as_path()
+                .parent()
+                .unwrap()
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_string();
             i += 1;
         }
 
@@ -334,8 +392,7 @@ pub fn mprs_play(args: &PlayArgs, config: &UserConfig) {
                         song_queue.shuffle(&mut thread_rng());
                     }
                     song_queue.insert(0, current_song);
-
-                },
+                }
                 _ => {
                     if args.shuffle {
                         song_queue.shuffle(&mut thread_rng());
