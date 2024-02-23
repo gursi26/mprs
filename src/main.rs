@@ -1,5 +1,4 @@
 #![allow(dead_code, unused_mut, unused_variables, unused_imports)]
-extern crate prettytable;
 
 mod args;
 mod config;

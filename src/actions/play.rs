@@ -1,30 +1,17 @@
 use crate::args::PlayArgs;
 use crate::config::UserConfig;
-use async_process::Command;
-use lofty::{read_from_path, AudioFile};
 use mprs::utils::{base_dir, list_dir};
 use rand::seq::SliceRandom;
 use rand::thread_rng;
-use rodio::source::{SineWave, Source};
 use rodio::{Decoder, OutputStream, Sink};
 use std::fs::File;
-use std::fs::{read_dir, DirEntry};
-use std::io;
 use std::io::BufReader;
-use std::io::{stdout, Write};
-use std::path::{Path, PathBuf};
-use std::thread;
-use std::time;
-use std::time::Duration;
-use std::time::Instant;
+use std::path::PathBuf;
 use stopwatch::Stopwatch;
 
 use crate::utils::{get_duration, get_input_key, get_instruction_string, UserInput};
 
 use anyhow::Result;
-use termion;
-use termion::input::TermRead;
-use termion::raw::IntoRawMode;
 
 use crossterm::{
     execute,
@@ -73,7 +60,7 @@ fn ui(app: &App, frame: &mut Frame) {
     )
     .split(frame.size());
     frame.render_widget(
-        Block::new().borders(Borders::TOP).title("mprs"),
+        Block::new().borders(Borders::TOP).title(" mprs "),
         main_layout[0],
     );
     frame.render_widget(
@@ -310,7 +297,7 @@ fn run(sink: &Sink, song_queue: Vec<PathBuf>) -> Result<()> {
 }
 
 pub fn mprs_play(args: &PlayArgs, config: &UserConfig) {
-    let mut playlists = list_dir(&config.base_dir);
+    let playlists = list_dir(&config.base_dir);
     let current_song: PathBuf;
     let mut song_queue: Vec<PathBuf>;
 
@@ -403,7 +390,7 @@ pub fn mprs_play(args: &PlayArgs, config: &UserConfig) {
     };
 
     let (_stream, stream_handle) = OutputStream::try_default().unwrap();
-    let mut sink = Sink::try_new(&stream_handle).unwrap();
+    let sink = Sink::try_new(&stream_handle).unwrap();
 
     startup().unwrap();
     let result = run(&sink, song_queue);

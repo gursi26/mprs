@@ -1,6 +1,11 @@
 use std::path::PathBuf;
 use dirs::home_dir;
-use prettytable::{Table, Cell, Row};
+// use prettytable::{Table, Cell, Row};
+use comfy_table::modifiers::UTF8_ROUND_CORNERS;
+use comfy_table::presets::UTF8_FULL;
+use comfy_table::*;
+
+
 use std::fs::read_dir;
 use lofty::{read_from_path, AudioFile};
 
@@ -44,18 +49,27 @@ pub fn list_dir(path: &PathBuf) -> Vec<PathBuf> {
 pub fn print_table(table_content: &Vec<Vec<String>>) {
     let mut table = Table::new();
 
+
     let mut row_vec: Vec<Cell>;
     // Insert all other rows
     for (i, x) in table_content.iter().enumerate() {
         row_vec = x.iter().map(|i| Cell::new(&(*i)[..])).collect();
         if i == 0 {
             row_vec.insert(0, Cell::new("#"));
+            table.set_header(row_vec);
         } else {
             row_vec.insert(0, Cell::new(&(i).to_string()[..]));
+            table.add_row(row_vec);
         }
-        table.add_row(Row::new(row_vec));
     }
-    table.printstd();
+
+    table
+        .load_preset(UTF8_FULL)
+        .apply_modifier(UTF8_ROUND_CORNERS)
+        .set_content_arrangement(ContentArrangement::Dynamic)
+        .set_width(200);
+
+    println!("{table}");
 }
 
 pub fn get_input_key() -> UserInput {
@@ -87,7 +101,7 @@ pub fn get_input_key() -> UserInput {
 }
 
 pub fn get_instruction_string() -> String {
-    format!("Quit: q | Pause/Play: p | Next: n | Previous: b | Increase/Decrease Volume: +/- | Increase/Decrease Speed: →/← | Reset Speed: ↑ ")
+    format!(" Quit: q | Pause/Play: p | Next: n | Previous: b | Increase/Decrease Volume: +/- | Increase/Decrease Speed: →/← | Reset Speed: ↑ ")
 }
 
 pub fn get_duration(path: &PathBuf) -> u64 {
