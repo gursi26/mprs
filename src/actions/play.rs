@@ -16,12 +16,240 @@ use std::io::BufReader;
 use std::time::Duration;
 use rodio::{Decoder, OutputStream, Sink};
 use rodio::source::{SineWave, Source};
+use lofty::{read_from_path, AudioFile};
+use stopwatch::Stopwatch;
+
+use crate::utils::{UserInput, get_input_key, get_instruction_string, get_duration};
 
 use termion;
 use termion::input::TermRead;
 use termion::raw::IntoRawMode;
+use anyhow::Result;
+
+use crossterm::{
+    execute,
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+};
+use ratatui::prelude::{CrosstermBackend, Frame, Terminal};
+use ratatui::{prelude::*, widgets::*};
 
 static TIME_UNTIL_BACK_SELF: u64 = 3;
+
+struct App {
+    songs: Vec<(String, String, String)>,
+    curr_song: String,
+    start_time: Stopwatch,
+    end_of_song: bool,
+    percent_of_song_complete: f64,
+    curr_song_base_duration: u64,
+    curr_song_adjusted_duration: u64,
+    curr_volume: f32,
+    curr_speed: f32,
+    instruction_string: String,
+    should_quit: bool,
+}
+
+fn startup() -> Result<()> {
+    enable_raw_mode()?;
+    execute!(std::io::stderr(), EnterAlternateScreen)?;
+    Ok(())
+}
+
+fn shutdown() -> Result<()> {
+    execute!(std::io::stderr(), LeaveAlternateScreen)?;
+    disable_raw_mode()?;
+    Ok(())
+}
+
+fn ui(app: &App, frame: &mut Frame) {
+    let main_layout = Layout::new(
+        Direction::Vertical,
+        [
+            Constraint::Length(1),
+            Constraint::Min(0),
+            Constraint::Length(1),
+        ],
+    ).split(frame.size());
+    frame.render_widget(
+        Block::new().borders(Borders::TOP).title("mprs"),
+        main_layout[0],
+    );
+    frame.render_widget(
+        Block::new()
+            .borders(Borders::TOP)
+            .title(app.instruction_string.clone()),
+        main_layout[2],
+    );
+
+    let inner_layout = Layout::new(
+        Direction::Vertical,
+        [Constraint::Percentage(50), Constraint::Percentage(50)],
+    )
+    .split(main_layout[1]);
+
+    let visualizer_layout = Layout::new(
+        Direction::Horizontal,
+        [Constraint::Percentage(30), Constraint::Percentage(70)],
+    ).split(inner_layout[1]);
+
+    let mut rows: Vec<Row> = Vec::new();
+    for (i, x) in app.songs.iter().enumerate() {
+        rows.push(Row::new(vec![
+            (i + 1).to_string(),
+            x.0.clone(),
+            x.1.clone(),
+            x.2.clone(),
+        ]))
+    }
+
+    let widths = [
+        Constraint::Length(10),
+        Constraint::Length(100),
+        Constraint::Length(50),
+        Constraint::Length(10),
+    ];
+    let table = Table::new(rows, widths)
+        .column_spacing(1)
+        .header(
+            Row::new(vec!["Position", "Name", "Playlist", "Duration"]).style(Style::new().bold()),
+        )
+        .highlight_style(Style::new().reversed())
+        .highlight_symbol(">>");
+
+    frame.render_widget(
+        table.block(Block::default().borders(Borders::ALL).title("Queue")),
+        inner_layout[0],
+    );
+
+    let now_playing_layout = Layout::new(
+        Direction::Vertical,
+        [Constraint::Percentage(60), Constraint::Percentage(40)],
+    ).split(visualizer_layout[0]);
+
+    let seconds = app.curr_song_adjusted_duration;
+    let s1 = format!("{}:{:0>2}", seconds/60, seconds - ((seconds/60) * 60) );
+    let elapsed = app.start_time.elapsed().as_secs();
+    let s2 = format!("{}:{:0>2}", elapsed/60, elapsed - ((elapsed/60) * 60) );
+    frame.render_widget(
+        Gauge::default()
+            .block(Block::default().borders(Borders::ALL))
+            .ratio(app.percent_of_song_complete)
+            .label(format!("{} / {}", s2, s1))
+            .use_unicode(true),
+        now_playing_layout[1],
+    );
+
+    frame.render_widget(
+        Paragraph::new(app.curr_song.clone())
+            .block(Block::new().title("Now Playing").borders(Borders::ALL)),
+        now_playing_layout[0]
+    );
+
+    frame.render_widget(
+        Block::default().borders(Borders::ALL).title("Visualizer"),
+        visualizer_layout[1],
+    );
+}
+
+fn table_from_song_queue(song_queue: &[PathBuf]) -> Vec<(String, String, String)> {
+    let mut output_vec = Vec::new();
+    for p in song_queue.iter() {
+        let song_path = p.clone();
+        let song_name = song_path.as_path().file_name().unwrap().to_str().unwrap();
+        let playlist_name = song_path.as_path().parent().unwrap().file_name().unwrap().to_str().unwrap();
+        let seconds = get_duration(&song_path);
+        let duration_str = format!("{}:{:0>2}", seconds/60, seconds - ((seconds/60) * 60) );
+        output_vec.push((String::from(song_name), String::from(playlist_name), duration_str));
+    }
+    output_vec
+}
+
+fn update(app: &mut App, sink: &Sink, curr_idx: &mut i32, song_queue: &Vec<PathBuf>) -> Result<()> {
+    app.curr_song_adjusted_duration = (app.curr_song_base_duration as f32 / app.curr_speed) as u64;
+    app.songs = table_from_song_queue(&song_queue[((*curr_idx as usize) - 1)..]);
+    app.percent_of_song_complete = app.start_time.elapsed().as_secs() as f64 / app.curr_song_adjusted_duration as f64;
+    sink.set_speed(app.curr_speed);
+    sink.set_volume(app.curr_volume);
+    match get_input_key() {
+        UserInput::Quit => app.should_quit = true,
+        UserInput::Next => {
+            sink.stop();
+            app.end_of_song = true;
+        }
+        UserInput::Previous => {
+            *curr_idx -= 1;
+            if app.start_time.elapsed().as_secs() < TIME_UNTIL_BACK_SELF {
+                *curr_idx -= 1;
+            }
+            sink.stop();
+            app.end_of_song = true;
+        }
+        UserInput::Pause => {
+            if sink.is_paused() {
+                sink.play();
+                app.start_time.start();
+            } else {
+                sink.pause();
+                app.start_time.stop();
+            }
+        }
+        UserInput::VolumeUp => app.curr_volume += 0.1,
+        UserInput::VolumeDown => app.curr_volume -= 0.1,
+        UserInput::SpeedUp => app.curr_speed += 0.1,
+        UserInput::SpeedDown => app.curr_speed -= 0.1,
+        UserInput::ResetSpeed => app.curr_speed = 1.0,
+        UserInput::DoNothing => {}
+    };
+    Ok(())
+}
+
+fn run(sink: &Sink, song_queue: Vec<PathBuf>) -> Result<()> {
+    // ratatui terminal
+    let mut t = Terminal::new(CrosstermBackend::new(std::io::stderr()))?;
+
+    // application state
+    let mut app = App {
+        songs: Vec::new(),
+        curr_song: String::new(),
+        start_time: Stopwatch::start_new(),
+        curr_speed: 1.0,
+        curr_volume: 1.0,
+        end_of_song: false,
+        instruction_string: get_instruction_string(),
+        should_quit: false,
+        curr_song_base_duration: 0,
+        curr_song_adjusted_duration: 0,
+        percent_of_song_complete: 0.0
+    };
+
+    let mut i: i32 = 0;
+    while i >= 0 && i <= (song_queue.len() as i32) {
+        if sink.empty() {
+            if i >= (song_queue.len() as i32) {
+                break;
+            }
+            let curr_song = &song_queue[i as usize];
+            sink.append(Decoder::new(BufReader::new(File::open(curr_song).unwrap())).unwrap());
+            app.start_time = Stopwatch::start_new();
+            app.curr_song_base_duration = get_duration(curr_song);
+            app.curr_song_adjusted_duration = app.curr_song_base_duration;
+            app.curr_song = curr_song.as_path().file_name().unwrap().to_str().unwrap().to_string();
+            i += 1;
+        }
+
+        update(&mut app, sink, &mut i, &song_queue).unwrap();
+
+        t.draw(|f| {
+            ui(&app, f);
+        })?;
+
+        if app.should_quit {
+            break;
+        }
+    }
+
+    Ok(())
+}
 
 pub fn mprs_play(args: &PlayArgs, config: &UserConfig) {
     let mut playlists = list_dir(&config.base_dir);
@@ -29,6 +257,7 @@ pub fn mprs_play(args: &PlayArgs, config: &UserConfig) {
     let mut song_queue: Vec<PathBuf>;
 
     match (&args.query_term, &args.playlist) {
+        // Case where playlist is specified
         (q, Some(p)) => {
             let mut selected_playlist = base_dir();
             selected_playlist.push(p.clone());
@@ -40,6 +269,7 @@ pub fn mprs_play(args: &PlayArgs, config: &UserConfig) {
             song_queue = list_dir(&selected_playlist);
 
             match q {
+                // case where song is specified
                 Some(query) => {
                     let mut start_index = -1;
                     for (i, x) in song_queue.iter().enumerate() {
@@ -60,12 +290,19 @@ pub fn mprs_play(args: &PlayArgs, config: &UserConfig) {
                     }
 
                     current_song = song_queue.remove(start_index as usize);
+                    if args.shuffle {
+                        song_queue.shuffle(&mut thread_rng());
+                    }
+                    song_queue.insert(0, current_song);
                 }
                 _ => {
-                    current_song = song_queue.remove(0);
+                    if args.shuffle {
+                        song_queue.shuffle(&mut thread_rng());
+                    }
                 }
             }
         }
+        // Case where no playlist is specified
         (q, None) => {
             song_queue = Vec::new();
             for p in list_dir(&config.base_dir) {
@@ -91,96 +328,28 @@ pub fn mprs_play(args: &PlayArgs, config: &UserConfig) {
                     if start_index == -1 {
                         println!("\"{}\" not found", query);
                     }
-
                     current_song = song_queue.remove(start_index as usize);
+
+                    if args.shuffle {
+                        song_queue.shuffle(&mut thread_rng());
+                    }
+                    song_queue.insert(0, current_song);
+
                 },
                 _ => {
-                    current_song = song_queue.remove(0);
+                    if args.shuffle {
+                        song_queue.shuffle(&mut thread_rng());
+                    }
                 }
             }
         }
     };
 
-    if args.shuffle {
-        song_queue.shuffle(&mut thread_rng())
-    }
-    song_queue.insert(0, current_song);
-
-
-    let mut stdout = io::stdout().into_raw_mode().unwrap();
-    let mut stdin = termion::async_stdin().keys();
-    let mut quit_flag: bool = false;
-    let mut i: i32 = 0;
-    let mut curr_volume = 1.0;
-    let mut curr_speed = 1.0;
-
     let (_stream, stream_handle) = OutputStream::try_default().unwrap();
-    let sink = Sink::try_new(&stream_handle).unwrap();
+    let mut sink = Sink::try_new(&stream_handle).unwrap();
 
-    while (i as usize) < song_queue.len() && !quit_flag {
-        // Get and print current song
-        let curr_song = &song_queue[i as usize];
-        println!("Current song: {}", curr_song.as_path().file_name().unwrap().to_str().unwrap());
-
-        // append current song to sink
-        sink.append(Decoder::new(BufReader::new(File::open(curr_song).unwrap())).unwrap());
-        sink.set_volume(curr_volume);
-        sink.set_speed(curr_speed);
-        let start_time = Instant::now();
-
-        while !sink.empty() {
-            let input = stdin.next();
-            if let Some(Ok(key)) = input {
-                match key {
-                    termion::event::Key::Char('q') => {
-                        sink.stop();
-                        quit_flag = true;
-                        break;
-                    }
-                    termion::event::Key::Char('n') => {
-                        sink.stop();
-                        break;
-                    }
-                    termion::event::Key::Char('b') => {
-                        sink.stop();
-                        i -= 1;
-                        if start_time.elapsed().as_secs() < TIME_UNTIL_BACK_SELF {
-                            i -= 1;
-                        }
-                        break;
-                    }
-                    termion::event::Key::Char('p') => {
-                        if sink.is_paused() {
-                            sink.play();
-                        } else {
-                            sink.pause();
-                        }
-                    }
-                    termion::event::Key::Char('+') => {
-                        curr_volume += 0.1;
-                        sink.set_volume(curr_volume);
-                    }
-                    termion::event::Key::Char('-') => {
-                        curr_volume -= 0.1;
-                        sink.set_volume(curr_volume);
-                    }
-                    termion::event::Key::Right => {
-                        curr_speed += 0.1;
-                        sink.set_speed(curr_speed);
-                    }
-                    termion::event::Key::Left => {
-                        curr_speed -= 0.1;
-                        sink.set_speed(curr_speed);
-                    }
-                    termion::event::Key::Up => {
-                        curr_speed = 1.0;
-                        sink.set_speed(curr_speed);
-                    }
-                    _ => {}
-                }
-            }
-            thread::sleep(time::Duration::from_millis(50));
-        }
-        i += 1;
-    }
+    startup().unwrap();
+    let result = run(&sink, song_queue);
+    shutdown().unwrap();
+    result.unwrap();
 }
