@@ -194,7 +194,7 @@ fn table_from_song_queue(song_queue: &[PathBuf]) -> Vec<(String, String, String)
 
 fn update(app: &mut App, sink: &Sink, curr_idx: &mut i32, song_queue: &Vec<PathBuf>) -> Result<()> {
     app.curr_song_adjusted_duration = (app.curr_song_base_duration as f32 / app.curr_speed) as u64;
-    app.songs = table_from_song_queue(&song_queue[((*curr_idx as usize) - 1)..]);
+    app.songs = table_from_song_queue(&song_queue[((*curr_idx - 1).clamp(0, i32::MAX) as usize)..]);
     app.percent_of_song_complete =
         app.start_time.elapsed().as_secs() as f64 / app.curr_song_adjusted_duration as f64;
     sink.set_speed(app.curr_speed);
