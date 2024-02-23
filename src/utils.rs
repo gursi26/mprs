@@ -2,6 +2,20 @@ use std::path::PathBuf;
 use dirs::home_dir;
 use prettytable::{Table, Cell, Row};
 use std::fs::read_dir;
+use lofty::{read_from_path, AudioFile};
+
+pub enum UserInput {
+    Quit,
+    Pause,
+    Next,
+    Previous,
+    VolumeUp,
+    VolumeDown,
+    SpeedUp,
+    SpeedDown,
+    ResetSpeed,
+    DoNothing,
+}
 
 
 pub fn config_path() -> PathBuf {
@@ -44,3 +58,39 @@ pub fn print_table(table_content: &Vec<Vec<String>>) {
     table.printstd();
 }
 
+pub fn get_input_key() -> UserInput {
+    if crossterm::event::poll(std::time::Duration::from_millis(250)).unwrap() {
+        // If a key event occurs, handle it
+        if let crossterm::event::Event::Key(key) = crossterm::event::read().unwrap() {
+            if key.kind == crossterm::event::KeyEventKind::Press {
+                match key.code {
+                    crossterm::event::KeyCode::Char('q') => UserInput::Quit,
+                    crossterm::event::KeyCode::Char('n') => UserInput::Next,
+                    crossterm::event::KeyCode::Char('b') => UserInput::Previous,
+                    crossterm::event::KeyCode::Char('p') => UserInput::Pause,
+                    crossterm::event::KeyCode::Char('+') => UserInput::VolumeUp,
+                    crossterm::event::KeyCode::Char('-') => UserInput::VolumeDown,
+                    crossterm::event::KeyCode::Right => UserInput::SpeedUp,
+                    crossterm::event::KeyCode::Left => UserInput::SpeedDown,
+                    crossterm::event::KeyCode::Up => UserInput::ResetSpeed,
+                    _ => UserInput::DoNothing,
+                }
+            } else {
+                UserInput::DoNothing
+            }
+        } else {
+            UserInput::DoNothing
+        }
+    } else {
+        UserInput::DoNothing
+    }
+}
+
+pub fn get_instruction_string() -> String {
+    format!("Quit: q | Pause/Play: p | Next: n | Previous: b | Increase/Decrease Volume: +/- | Increase/Decrease Speed: →/← | Reset Speed: ↑ ")
+}
+
+pub fn get_duration(path: &PathBuf) -> u64 {
+    let duration = read_from_path(path.clone()).unwrap().properties().duration();
+    duration.as_secs()
+}
