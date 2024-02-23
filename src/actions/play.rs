@@ -41,7 +41,8 @@ struct App {
     start_time: Stopwatch,
     end_of_song: bool,
     percent_of_song_complete: f64,
-    curr_song_duration: u64,
+    curr_song_base_duration: u64,
+    curr_song_adjusted_duration: u64,
     curr_volume: f32,
     curr_speed: f32,
     instruction_string: String,
@@ -125,7 +126,7 @@ fn ui(app: &App, frame: &mut Frame) {
         [Constraint::Percentage(60), Constraint::Percentage(40)],
     ).split(visualizer_layout[0]);
 
-    let seconds = app.curr_song_duration;
+    let seconds = app.curr_song_adjusted_duration;
     let s1 = format!("{}:{:0>2}", seconds/60, seconds - ((seconds/60) * 60) );
     let elapsed = app.start_time.elapsed().as_secs();
     let s2 = format!("{}:{:0>2}", elapsed/60, elapsed - ((elapsed/60) * 60) );
@@ -164,8 +165,9 @@ fn table_from_song_queue(song_queue: &[PathBuf]) -> Vec<(String, String, String)
 }
 
 fn update(app: &mut App, sink: &Sink, curr_idx: &mut i32, song_queue: &Vec<PathBuf>) -> Result<()> {
+    app.curr_song_adjusted_duration = (app.curr_song_base_duration as f32 / app.curr_speed) as u64;
     app.songs = table_from_song_queue(&song_queue[((*curr_idx as usize) - 1)..]);
-    app.percent_of_song_complete = app.start_time.elapsed().as_secs() as f64 / app.curr_song_duration as f64;
+    app.percent_of_song_complete = app.start_time.elapsed().as_secs() as f64 / app.curr_song_adjusted_duration as f64;
     sink.set_speed(app.curr_speed);
     sink.set_volume(app.curr_volume);
     match get_input_key() {
@@ -215,7 +217,8 @@ fn run(sink: &Sink, song_queue: Vec<PathBuf>) -> Result<()> {
         end_of_song: false,
         instruction_string: get_instruction_string(),
         should_quit: false,
-        curr_song_duration: 0,
+        curr_song_base_duration: 0,
+        curr_song_adjusted_duration: 0,
         percent_of_song_complete: 0.0
     };
 
@@ -228,7 +231,8 @@ fn run(sink: &Sink, song_queue: Vec<PathBuf>) -> Result<()> {
             let curr_song = &song_queue[i as usize];
             sink.append(Decoder::new(BufReader::new(File::open(curr_song).unwrap())).unwrap());
             app.start_time = Stopwatch::start_new();
-            app.curr_song_duration = get_duration(curr_song);
+            app.curr_song_base_duration = get_duration(curr_song);
+            app.curr_song_adjusted_duration = app.curr_song_base_duration;
             app.curr_song = curr_song.as_path().file_name().unwrap().to_str().unwrap().to_string();
             i += 1;
         }
