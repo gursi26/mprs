@@ -9,6 +9,9 @@ use crate::actions::add::mprs_add;
 use crate::actions::create::mprs_create;
 use crate::actions::remove::mprs_remove;
 use crate::actions::play::mprs_play;
+use crate::actions::list::mprs_list;
+use crate::actions::open::mprs_open;
+
 use args::*;
 use clap::Parser;
 use config::{init_config, parse_config_file};
@@ -22,5 +25,7 @@ fn main() {
         ActionType::Remove(ref remove_args) => mprs_remove(remove_args, &user_config),
         ActionType::Create(ref create_args) => mprs_create(create_args, &user_config),
         ActionType::Play(ref play_args) => mprs_play(play_args, &user_config),
+        ActionType::List(ref list_args) => mprs_list(list_args, &user_config),
+        ActionType::Open => mprs_open(&user_config),
     };
 }

@@ -101,7 +101,7 @@ fn ui(app: &App, frame: &mut Frame) {
 
     let widths = [
         Constraint::Length(10),
-        Constraint::Length(100),
+        Constraint::Length(150),
         Constraint::Length(50),
         Constraint::Length(10),
     ];
