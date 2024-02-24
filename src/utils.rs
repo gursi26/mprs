@@ -1,13 +1,11 @@
-use std::path::PathBuf;
 use dirs::home_dir;
+use std::path::PathBuf;
 // use prettytable::{Table, Cell, Row};
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
 use comfy_table::presets::UTF8_FULL;
 use comfy_table::*;
-
-
+use lofty::{Accessor, Probe, TaggedFileExt, read_from_path, AudioFile, Tag, TagExt};
 use std::fs::read_dir;
-use lofty::{read_from_path, AudioFile};
 
 pub enum UserInput {
     Quit,
@@ -21,7 +19,6 @@ pub enum UserInput {
     ResetSpeed,
     DoNothing,
 }
-
 
 pub fn config_path() -> PathBuf {
     let mut config_path = home_dir().unwrap();
@@ -38,17 +35,13 @@ pub fn base_dir() -> PathBuf {
 }
 
 pub fn list_dir(path: &PathBuf) -> Vec<PathBuf> {
-    let mut files: Vec<PathBuf> = read_dir(path)
-        .unwrap()
-        .map(|i| i.unwrap().path())
-        .collect();
+    let mut files: Vec<PathBuf> = read_dir(path).unwrap().map(|i| i.unwrap().path()).collect();
     files.retain(|x| x.as_path().file_name().unwrap().to_str().unwrap() != ".DS_Store");
     files
 }
 
 pub fn print_table(table_content: &Vec<Vec<String>>) {
     let mut table = Table::new();
-
 
     let mut row_vec: Vec<Cell>;
     // Insert all other rows
@@ -105,6 +98,53 @@ pub fn get_instruction_string() -> String {
 }
 
 pub fn get_duration(path: &PathBuf) -> u64 {
-    let duration = read_from_path(path.clone()).unwrap().properties().duration();
+    let duration = read_from_path(path.clone())
+        .unwrap()
+        .properties()
+        .duration();
     duration.as_secs()
+}
+
+pub fn set_artist(path: &PathBuf, artist: &String) {
+    let mut tagged_file = Probe::open(path)
+		.expect("ERROR: Bad path provided!")
+		.read()
+		.expect("ERROR: Failed to read file!");
+
+	let tag = match tagged_file.primary_tag_mut() {
+		Some(primary_tag) => primary_tag,
+		None => {
+			if let Some(first_tag) = tagged_file.first_tag_mut() {
+				first_tag
+			} else {
+				let tag_type = tagged_file.primary_tag_type();
+
+				eprintln!("WARN: No tags found, creating a new tag of type `{tag_type:?}`");
+				tagged_file.insert_tag(Tag::new(tag_type));
+
+				tagged_file.primary_tag_mut().unwrap()
+			}
+		},
+	};
+
+    tag.set_artist(artist.clone());
+    tag.save_to_path(path).unwrap();
+}
+
+pub fn get_artist(path: &PathBuf) -> String {
+    if !path.is_file() {
+        panic!("ERROR: Path is not a file!");
+    }
+
+    let tagged_file = Probe::open(path)
+        .expect("ERROR: Bad path provided!")
+        .read()
+        .expect("ERROR: Failed to read file!");
+
+    let tag = match tagged_file.primary_tag() {
+        Some(primary_tag) => primary_tag,
+        None => tagged_file.first_tag().expect("ERROR: No tags found!"),
+    };
+
+    tag.artist().as_deref().unwrap_or("Unknown").to_string()
 }

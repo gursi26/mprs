@@ -1,10 +1,9 @@
 use std::fs;
-use mprs::utils::list_dir;
-use chrono::{DateTime, Local, Utc};
+use chrono::{DateTime, Utc};
 
 use crate::args::ListArgs;
 use crate::config::UserConfig;
-use crate::utils::{print_table, base_dir, get_duration};
+use crate::utils::{print_table, base_dir, get_duration, get_artist, list_dir};
 
 pub fn mprs_list(args: &ListArgs, config: &UserConfig) {
     let mut table: Vec<Vec<String>> = Vec::new();
@@ -20,11 +19,13 @@ pub fn mprs_list(args: &ListArgs, config: &UserConfig) {
 
                 let songs = list_dir(&playlist_path);
 
-                table.push(vec!["Song Name", "Duration", "Date Added"].iter().map(|&x| x.to_string()).collect());
+                table.push(vec!["Song Name", "Artist", "Duration", "Date Added"].iter().map(|&x| x.to_string()).collect());
                 for song_path in songs {
                     let mut curr_vec = Vec::new();
                     let seconds = get_duration(&song_path);
+                    let artist = get_artist(&song_path);
                     curr_vec.push(song_path.clone().as_path().file_name().unwrap().to_str().unwrap().to_string());
+                    curr_vec.push(artist);
                     curr_vec.push(format!("{}:{:0>2}", seconds / 60, seconds - ((seconds / 60) * 60)));
                     let metadata = fs::metadata(&song_path).unwrap();
                     if let Ok(time) = metadata.created() {
@@ -59,7 +60,7 @@ pub fn mprs_list(args: &ListArgs, config: &UserConfig) {
         }
     } else {
         let playlist_paths = list_dir(&config.base_dir);
-        table.push(vec!["Song Name", "Playlist", "Duration", "Date Added"].iter().map(|&x| x.to_string()).collect());
+        table.push(vec!["Song Name", "Artist", "Playlist", "Duration", "Date Added"].iter().map(|&x| x.to_string()).collect());
         for playlist_path in playlist_paths {
             let playlist_name = playlist_path.clone().as_path().file_name().unwrap().to_str().unwrap().to_string();
             let song_paths = list_dir(&playlist_path);
@@ -67,6 +68,7 @@ pub fn mprs_list(args: &ListArgs, config: &UserConfig) {
                 let mut curr_vec = Vec::new();
                 let seconds = get_duration(&song_path);
                 curr_vec.push(song_path.clone().as_path().file_name().unwrap().to_str().unwrap().to_string());
+                curr_vec.push(get_artist(&song_path));
                 curr_vec.push(playlist_name.clone());
                 curr_vec.push(format!("{}:{:0>2}", seconds / 60, seconds - ((seconds / 60) * 60)));
                 let metadata = fs::metadata(&song_path).unwrap();
