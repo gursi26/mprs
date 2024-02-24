@@ -59,8 +59,8 @@ pub fn mprs_list(args: &ListArgs, config: &UserConfig) {
         }
     } else {
         let playlist_paths = list_dir(&config.base_dir);
+        table.push(vec!["Song Name", "Playlist", "Duration", "Date Added"].iter().map(|&x| x.to_string()).collect());
         for playlist_path in playlist_paths {
-            table.push(vec!["Song Name", "Playlist", "Duration", "Date Added"].iter().map(|&x| x.to_string()).collect());
             let playlist_name = playlist_path.clone().as_path().file_name().unwrap().to_str().unwrap().to_string();
             let song_paths = list_dir(&playlist_path);
             for song_path in song_paths {
