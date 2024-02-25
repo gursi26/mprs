@@ -97,10 +97,14 @@ pub fn mprs_remove(args: &RemoveArgs, config: &UserConfig)
     // Declare index representing which song to delete (assigned via user input if no query term is given).
     let id_idx: i32;
 
-    let mut table_content = vec![vec!["Song Title".to_string()]];
+    let mut table_content = vec![vec!["Song Title".to_string(), "Playlist".to_string()]];
     for path in remove_options.iter() {
         let song_title = Path::new(path.file_stem().unwrap()).file_name().unwrap().to_os_string();
-        table_content.push(vec![song_title.to_str().unwrap().to_string()]);
+        table_content.push(vec![
+            song_title.to_str().unwrap().to_string(), 
+            path.parent().unwrap().file_name().unwrap().to_str().unwrap().to_string()
+            ]
+        );
     }
     print_table(&table_content);
 
