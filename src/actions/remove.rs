@@ -1,13 +1,11 @@
-use crate::actions::remove;
+use crate::actions::{play, remove};
 use crate::args::RemoveArgs;
 use crate::config::UserConfig;
 use std::io::{stdout, Write, stdin};
-use mprs::utils;
 use mprs::utils::{print_table, list_dir};
 use std::fs::remove_file;
 use std::io;
-use std::path::Path;
-use prettytable::{Table, Cell, Row};  // should this be in utils?
+use std::path::{Path, PathBuf};
 
 pub fn mprs_remove(args: &RemoveArgs, config: &UserConfig) 
 {
@@ -15,76 +13,110 @@ pub fn mprs_remove(args: &RemoveArgs, config: &UserConfig)
     println!("{:?}", config);
     println!("{:?}", args);
 
-    // Unwrap args.query_term
-    let query = args.query_term.as_deref().unwrap_or("None");
-
     println!(
-        "Query: {}\nPlaylist: {}",
-        query, args.playlist
+        "Query: {:?}\nPlaylist: {:?}",
+        args.track, args.playlist
     );
 
-    // Confirm that the playlist exists before attempting to remove a song from it.
+    // Get all playlists in base directory.
     let mut playlists = list_dir(&config.base_dir);
+    let mut remove_options = vec![];
 
-    let mut selected_playlist = config.base_dir.clone();
-    selected_playlist.push(&args.playlist.clone());
-    
-    if !playlists.contains(&selected_playlist) {
-        println!("Playlist {:?} does not exist.\nThere is thus nothing to remove.", selected_playlist);
-        return;
+    match (&args.track, &args.playlist) {
+        (q, Some(playlist)) => {
+            let mut playlist_path = config.base_dir.clone();
+            playlist_path.push(&playlist.clone());
+
+            // Catch invalid user input
+            if !playlist_path.is_dir() {
+                println!("Playlist {:?} does not exist.\nThere is thus nothing to remove.", playlist_path);
+                return;
+            }
+
+            for x in list_dir(&playlist_path) {
+                match q {
+                    Some(query) => {
+                        if x.as_path()
+                            .file_name()
+                            .unwrap()
+                            .to_str()
+                            .unwrap()
+                            .to_lowercase()
+                            .contains(&query.to_lowercase()[..])
+                        {
+                            remove_options.push(x);
+                        }
+                    }
+                    None => {
+                        remove_options.push(x);
+                    }
+                }
+            }
+        }
+        (q, None) => {
+            for playlist in playlists.iter() {
+                for track in list_dir(&playlist) {
+                    match q {
+                        Some(query) => {
+                            if track.as_path()
+                                .file_name()
+                                .unwrap()
+                                .to_str()
+                                .unwrap()
+                                .to_lowercase()
+                                .contains(&query.to_lowercase()[..])
+                            {
+                                remove_options.push(track);
+                            }
+                        }
+                        None => {
+                            remove_options.push(track);
+                        }
+                    }
+                }
+            }
+        }
     }
 
-    println!("Playlist path: {:?}", selected_playlist);
+    if remove_options.len() == 0 {
+        println!("No matching tracks found.");
+        return;
+    } 
+    if remove_options.len() == 1 {
+        // Do not print table of options if there is only one option.
+        let removed_song = &remove_options[0];
 
-    // Using utils, get path of all songs in playlist and store in a vector.
-    let paths = list_dir(&selected_playlist.to_owned());
+        let removed_song_title = Path::new(removed_song.file_stem().unwrap()).file_name().unwrap();
+        let removed_from_playlist = Path::new(removed_song.parent().unwrap()).file_name().unwrap();
+        println!("Removed \"{:?}\" from playlist \"{:?}\".", removed_song_title, removed_from_playlist);
+
+        remove_file(removed_song.to_owned()).unwrap();
+        return;
+    }
 
     // Declare index representing which song to delete (assigned via user input if no query term is given).
     let id_idx: i32;
 
-    // Print all songs in playlist and let user decide which to remove.
-    if query == "None" {
-        let mut table_content = vec![vec!["Song Title".to_string()]];
-        for path in &paths {
-            let song_title = Path::new(path.file_stem().unwrap()).file_name().unwrap().to_os_string();
-            table_content.push(vec![song_title.to_str().unwrap().to_string()]);
-        }
-        print_table(&table_content);
-
-        // Get user input for which song to remove.
-        let mut input_string = String::new();
-        print!("Select song to remove by number : ");
-        let _ = stdout().flush();
-        std::io::stdin().read_line(&mut input_string).unwrap();
-        // Convert user input to i32 and store in id_idx.
-        id_idx = input_string.trim().parse().unwrap();
+    let mut table_content = vec![vec!["Song Title".to_string()]];
+    for path in remove_options.iter() {
+        let song_title = Path::new(path.file_stem().unwrap()).file_name().unwrap().to_os_string();
+        table_content.push(vec![song_title.to_str().unwrap().to_string()]);
     }
+    print_table(&table_content);
 
-    // Set id_idx to remove first song from playlist matching query term.
-    else {  // User has provided a query term indicating a song to remove
-        let mut start_index = -1;
-        for (i, x) in paths.iter().enumerate() {
-            if x.as_path()
-                .file_name()
-                .unwrap()
-                .to_str()
-                .unwrap()
-                .to_lowercase()
-                .contains(&query.to_lowercase()[..])
-            {
-                start_index = i as i32;
-            }
-        }
-        // Set id_idx accordingly
-        id_idx = start_index;
+    // Get user input for which song to remove.
+    let mut input_string = String::new();
+    print!("Select song to remove by number : ");
+    let _ = stdout().flush();
+    std::io::stdin().read_line(&mut input_string).unwrap();
+    // Convert user input to i32 and store in id_idx.
+    id_idx = input_string.trim().parse().unwrap();
 
-        if start_index == -1 {
-            println!("\"{}\" not found in playlist \"{:?}\"", query, selected_playlist);
-        }
-    }
+    let removed_song = &remove_options[(id_idx - 1) as usize];
 
-    let removed_song = &paths[(id_idx - 1) as usize];
-    println!("Removed song: {:?}", removed_song);
+    let removed_song_title = Path::new(removed_song.file_stem().unwrap()).file_name().unwrap();
+    let removed_from_playlist = Path::new(removed_song.parent().unwrap()).file_name().unwrap();
+    println!("Removed \"{:?}\" from playlist \"{:?}\".", removed_song_title, removed_from_playlist);
 
     remove_file(removed_song.to_owned()).unwrap();
 }

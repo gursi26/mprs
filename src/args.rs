@@ -56,14 +56,15 @@ pub struct AddArgs {
 
 #[derive(Debug, Args)]
 pub struct RemoveArgs {
-    /// The search term for the song to be removed (Optional, lists all songs in playlist if
+    /// The search term for the track to be removed (Optional, lists all tracks in playlist if
     /// unspecified)
-    #[arg(short = 'q', long = "query-term", default_value = None)]
-    pub query_term: Option<String>,
+    #[arg(default_value = None)]
+    pub track: Option<String>,
 
-    /// The playlist from which the song is to be removed
-    #[arg(short = 'p', long = "playlist", default_value = "liked")]
-    pub playlist: String,
+    /// The playlist from which the song is to be removed (Optional, searches in all playlists if
+    /// unspecified)
+    #[arg(short = 'p', long = "playlist", default_value = None)]
+    pub playlist: Option<String>,
 }
 
 #[derive(Debug, Args)]
