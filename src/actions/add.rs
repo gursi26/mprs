@@ -35,14 +35,7 @@ pub async fn mprs_add(args: &AddArgs, config: &UserConfig) {
         println!("Successfully downloaded to {:?}", save_path);
     }
 
-    // FIX: Deal with '/' in song name file path bug
-    let mut song_name = results_vec[id_idx as usize][0].clone();
-    for i in 1..song_name.len() {
-        if song_name.as_bytes()[i] == '/' as u8 {
-            song_name.insert(i - 1, '\\');
-        }
-    }
-    println!("{}", song_name);
+    let song_name = results_vec[id_idx as usize][0].clone().replace("/", "");
     save_path.push(format!("mprs-audio.{}", config.audio_format));
 
     let channel_name = &results_vec[id_idx as usize][1];
