@@ -11,6 +11,7 @@ use crate::actions::remove::mprs_remove;
 use crate::actions::play::mprs_play;
 use crate::actions::list::mprs_list;
 use crate::actions::open::mprs_open;
+use crate::actions::mv_cpy::mprs_move;
 
 use args::*;
 use clap::Parser;
@@ -27,6 +28,7 @@ async fn main() {
         ActionType::Create(ref create_args) => mprs_create(create_args, &user_config),
         ActionType::Play(ref play_args) => mprs_play(play_args, &user_config),
         ActionType::List(ref list_args) => mprs_list(list_args, &user_config),
+        ActionType::Move(ref move_args) => mprs_move(move_args, &user_config),
         ActionType::Open => mprs_open(&user_config),
     };
 }

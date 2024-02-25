@@ -1,10 +1,11 @@
 use dirs::home_dir;
 use std::path::PathBuf;
+use chrono::{DateTime, Utc};
 // use prettytable::{Table, Cell, Row};
 use comfy_table::modifiers::UTF8_ROUND_CORNERS;
 use comfy_table::presets::UTF8_FULL;
 use comfy_table::*;
-use lofty::{Accessor, Probe, TaggedFileExt, read_from_path, AudioFile, Tag, TagExt};
+use lofty::{read_from_path, Accessor, AudioFile, Probe, Tag, TagExt, TaggedFileExt};
 use std::fs::read_dir;
 
 pub enum UserInput {
@@ -39,6 +40,25 @@ pub fn list_dir(path: &PathBuf) -> Vec<PathBuf> {
     let mut files: Vec<PathBuf> = read_dir(path).unwrap().map(|i| i.unwrap().path()).collect();
     files.retain(|x| x.as_path().file_name().unwrap().to_str().unwrap() != ".DS_Store");
     files
+}
+
+pub fn get_track_information(track_path: &PathBuf) -> Vec<String> {
+    let name = get_track_name(&track_path);
+    let artist = get_artist(&track_path);
+    let playlist = get_playlist(&track_path);
+    let duration = get_duration(&track_path).to_string();
+    let date_added = get_date_added(&track_path);
+    vec![name, artist, playlist, duration, date_added]
+}
+
+pub fn get_track_name(track_path: &PathBuf) -> String {
+    track_path
+        .as_path()
+        .file_name()
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string()
 }
 
 pub fn print_table(table_content: &Vec<Vec<String>>) {
@@ -108,28 +128,50 @@ pub fn get_duration(path: &PathBuf) -> u64 {
 
 pub fn set_artist(path: &PathBuf, artist: &String) {
     let mut tagged_file = Probe::open(path)
-		.expect("ERROR: Bad path provided!")
-		.read()
-		.expect("ERROR: Failed to read file!");
+        .expect("ERROR: Bad path provided!")
+        .read()
+        .expect("ERROR: Failed to read file!");
 
-	let tag = match tagged_file.primary_tag_mut() {
-		Some(primary_tag) => primary_tag,
-		None => {
-			if let Some(first_tag) = tagged_file.first_tag_mut() {
-				first_tag
-			} else {
-				let tag_type = tagged_file.primary_tag_type();
+    let tag = match tagged_file.primary_tag_mut() {
+        Some(primary_tag) => primary_tag,
+        None => {
+            if let Some(first_tag) = tagged_file.first_tag_mut() {
+                first_tag
+            } else {
+                let tag_type = tagged_file.primary_tag_type();
 
-				eprintln!("WARN: No tags found, creating a new tag of type `{tag_type:?}`");
-				tagged_file.insert_tag(Tag::new(tag_type));
+                eprintln!("WARN: No tags found, creating a new tag of type `{tag_type:?}`");
+                tagged_file.insert_tag(Tag::new(tag_type));
 
-				tagged_file.primary_tag_mut().unwrap()
-			}
-		},
-	};
+                tagged_file.primary_tag_mut().unwrap()
+            }
+        }
+    };
 
     tag.set_artist(artist.clone());
     tag.save_to_path(path).unwrap();
+}
+
+pub fn get_playlist(track_path: &PathBuf) -> String {
+    track_path
+        .as_path()
+        .parent()
+        .unwrap()
+        .file_name()
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string()
+}
+
+pub fn get_date_added(track_path: &PathBuf) -> String {
+    let metadata = std::fs::metadata(track_path).unwrap();
+    if let Ok(time) = metadata.created() {
+        let datetime: DateTime<Utc> = time.clone().into();
+        datetime.to_string()
+    } else {
+        String::from("")
+    }
 }
 
 pub fn get_artist(path: &PathBuf) -> String {

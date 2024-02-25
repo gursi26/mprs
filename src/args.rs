@@ -24,9 +24,32 @@ pub enum ActionType {
     /// Lists songs within a playlist or all playlists
     List(ListArgs),
 
+    /// Moves/Copies a song from one playlist to another
+    Move(MoveArgs),
+
     /// Opens the directory where audio files are stored
     Open
 }
+
+#[derive(Debug, Args)]
+pub struct MoveArgs {
+    /// The name of the track to be copied (returns a selection table if multiple matches found)
+    #[arg()]
+    pub track: String,
+
+    /// The source playlist (looks for source track in all songs if unspecified)
+    #[arg(short = 'p', long = "playlist", default_value = None)]
+    pub source_playlist: Option<String>,
+
+    /// Destination playlist where track is to be moved/copied
+    #[arg(short = 'd', long = "dest")]
+    pub dest_playlist: String,
+
+    /// Flag for copy instead of move
+    #[arg(short = 'c', long = "copy", action = ArgAction::SetTrue)]
+    pub copy: bool,
+}
+
 
 #[derive(Debug, Args)]
 pub struct ListArgs {
