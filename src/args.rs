@@ -20,6 +20,23 @@ pub enum ActionType {
 
     /// Plays a specific playlist (or "liked" if no playlist specified)
     Play(PlayArgs),
+
+    /// Lists songs within a playlist or all playlists
+    List(ListArgs),
+
+    /// Opens the directory where audio files are stored
+    Open
+}
+
+#[derive(Debug, Args)]
+pub struct ListArgs {
+    /// The term for the playlist to be listed (lists playlists if not provided)
+    #[arg(short = 'p', long = "playlist", default_value = None)]
+    pub playlist: Option<String>,
+
+    /// Lists all songs in all playlists
+    #[arg(short = 'a', long = "all", action = ArgAction::SetTrue)]
+    pub list_all: bool,
 }
 
 #[derive(Debug, Args)]

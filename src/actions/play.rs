@@ -1,4 +1,4 @@
-use crate::args::PlayArgs;
+use crate::{args::PlayArgs, utils::get_artist};
 use crate::config::UserConfig;
 use mprs::utils::{base_dir, list_dir};
 use rand::seq::SliceRandom;
@@ -23,7 +23,7 @@ use ratatui::{prelude::*, widgets::*};
 static TIME_UNTIL_BACK_SELF: u64 = 3;
 
 struct App {
-    songs: Vec<(String, String, String)>,
+    songs: Vec<(String, String, String, String)>,
     curr_song: String,
     curr_playlist: String,
     start_time: Stopwatch,
@@ -88,6 +88,7 @@ fn ui(app: &App, frame: &mut Frame) {
             app.songs[0].0.clone(),
             app.songs[0].1.clone(),
             app.songs[0].2.clone(),
+            app.songs[0].3.clone(),
         ]).style(Style::new().blue().bold()));
 
     for (i, x) in app.songs.iter().skip(1).enumerate() {
@@ -96,19 +97,21 @@ fn ui(app: &App, frame: &mut Frame) {
             x.0.clone(),
             x.1.clone(),
             x.2.clone(),
+            x.3.clone(),
         ]))
     }
 
     let widths = [
         Constraint::Length(10),
-        Constraint::Length(100),
-        Constraint::Length(50),
+        Constraint::Length(200),
+        Constraint::Length(30),
+        Constraint::Length(20),
         Constraint::Length(10),
     ];
     let table = Table::new(rows, widths)
         .column_spacing(1)
         .header(
-            Row::new(vec!["Position", "Name", "Playlist", "Duration"]).style(Style::new().bold()),
+            Row::new(vec!["Position", "Name", "Artist", "Playlist", "Duration"]).style(Style::new().bold()),
         )
         .highlight_style(Style::new().reversed())
         .highlight_symbol(">>");
@@ -168,11 +171,12 @@ fn ui(app: &App, frame: &mut Frame) {
     );
 }
 
-fn table_from_song_queue(song_queue: &[PathBuf]) -> Vec<(String, String, String)> {
+fn table_from_song_queue(song_queue: &[PathBuf]) -> Vec<(String, String, String, String)> {
     let mut output_vec = Vec::new();
     for p in song_queue.iter() {
         let song_path = p.clone();
         let song_name = song_path.as_path().file_name().unwrap().to_str().unwrap();
+        let artist_name = get_artist(&song_path);
         let playlist_name = song_path
             .as_path()
             .parent()
@@ -185,6 +189,7 @@ fn table_from_song_queue(song_queue: &[PathBuf]) -> Vec<(String, String, String)
         let duration_str = format!("{}:{:0>2}", seconds / 60, seconds - ((seconds / 60) * 60));
         output_vec.push((
             String::from(song_name),
+            artist_name,
             String::from(playlist_name),
             duration_str,
         ));
