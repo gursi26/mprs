@@ -48,10 +48,6 @@ pub struct AddArgs {
     /// The playlist to add the song to
     #[arg(short = 'p', long = "playlist", default_value = "liked")]
     pub playlist: String,
-
-    /// The number of search results to display
-    #[arg(short = 'c', long = "count", default_value_t = 3)]
-    pub count: i8,
 }
 
 #[derive(Debug, Args)]

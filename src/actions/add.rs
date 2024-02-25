@@ -5,13 +5,13 @@ use std::io::{stdout, Write};
 use crate::utils::{set_artist, print_table};
 
 
-pub fn mprs_add(args: &AddArgs, config: &UserConfig) {
+pub async fn mprs_add(args: &AddArgs, config: &UserConfig) {
     println!(
-        "Query: \"{}\"\nNumber of results: {}\nPlaylist: {}",
-        args.query_term, args.count, args.playlist
+        "Query: \"{}\"\nPlaylist: {}",
+        args.query_term, args.playlist
     );
 
-    let (id_vec, results_vec) = search_ytdlp(&args.query_term, args.count);
+    let (id_vec, results_vec) = search_ytdlp(&args.query_term, 3).await;
     print_table(&results_vec);
 
     print!("Select song by number : ");

@@ -28,6 +28,7 @@ pub fn config_path() -> PathBuf {
     config_path
 }
 
+// FIX: Use base_dir from config.yaml
 pub fn base_dir() -> PathBuf {
     let mut base_dir = home_dir().unwrap();
     base_dir.push("mprs-music");

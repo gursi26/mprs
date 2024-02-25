@@ -25,6 +25,7 @@ static TIME_UNTIL_BACK_SELF: u64 = 3;
 struct App {
     songs: Vec<(String, String, String, String)>,
     curr_song: String,
+    curr_artist: String,
     curr_playlist: String,
     start_time: Stopwatch,
     end_of_song: bool,
@@ -145,6 +146,9 @@ fn ui(app: &App, frame: &mut Frame) {
             .style(Style::new().yellow().bold())
             .centered(),
         Line::from(" "),
+        Line::from(format!("Artist : {}", app.curr_artist.clone()))
+            .style(Style::new())
+            .centered(),
         Line::from(format!("Playlist : {}", app.curr_playlist.clone()))
             .style(Style::new())
             .centered(),
@@ -245,6 +249,7 @@ fn run(sink: &Sink, song_queue: Vec<PathBuf>) -> Result<()> {
     let mut app = App {
         songs: Vec::new(),
         curr_song: String::new(),
+        curr_artist: String::new(),
         curr_playlist: String::new(),
         start_time: Stopwatch::start_new(),
         curr_speed: 1.0,
@@ -275,6 +280,7 @@ fn run(sink: &Sink, song_queue: Vec<PathBuf>) -> Result<()> {
                 .to_str()
                 .unwrap()
                 .to_string();
+
             app.curr_playlist = curr_song
                 .as_path()
                 .parent()
@@ -284,6 +290,8 @@ fn run(sink: &Sink, song_queue: Vec<PathBuf>) -> Result<()> {
                 .to_str()
                 .unwrap()
                 .to_string();
+
+            app.curr_artist = get_artist(&curr_song);
             i += 1;
         }
 
@@ -337,6 +345,7 @@ pub fn mprs_play(args: &PlayArgs, config: &UserConfig) {
 
                     if start_index == -1 {
                         println!("\"{}\" not found in playlist \"{}\"", query, p);
+                        return;
                     }
 
                     current_song = song_queue.remove(start_index as usize);

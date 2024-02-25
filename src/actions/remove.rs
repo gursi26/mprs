@@ -1,20 +1,22 @@
+use crate::actions::{play, remove};
 use crate::args::RemoveArgs;
 use crate::config::UserConfig;
 use std::io::{stdout, Write, stdin};
 use mprs::utils::{print_table, list_dir};
 use std::fs::remove_file;
+use std::io;
 use std::path::{Path, PathBuf};
 
 pub fn mprs_remove(args: &RemoveArgs, config: &UserConfig) 
 {
-    println!("\nDEBUG INFO:");
-    println!("{:?}", config);
-    println!("{:?}", args);
+    // println!("\nDEBUG INFO");
+    // println!("{:?}", config);
+    // println!("{:?}", args);
 
-    println!(
-        "Query: {:?}\nPlaylist: {:?}",
-        args.track, args.playlist
-    );
+    // println!(
+    //     "Query: {:?}\nPlaylist: {:?}",
+    //     args.track, args.playlist
+    // );
 
     // Get all playlists in base directory.
     let mut playlists = list_dir(&config.base_dir);
@@ -110,7 +112,7 @@ pub fn mprs_remove(args: &RemoveArgs, config: &UserConfig)
     let mut input_string = String::new();
     print!("Select song to remove by number : ");
     let _ = stdout().flush();
-    stdin().read_line(&mut input_string).unwrap();
+    std::io::stdin().read_line(&mut input_string).unwrap();
     // Convert user input to i32 and store in id_idx.
     id_idx = input_string.trim().parse().unwrap();
 
