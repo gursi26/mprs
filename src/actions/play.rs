@@ -386,6 +386,7 @@ pub fn mprs_play(args: &PlayArgs, config: &UserConfig) {
 
                     if start_index == -1 {
                         println!("\"{}\" not found", query);
+                        return;
                     }
                     current_song = song_queue.remove(start_index as usize);
 

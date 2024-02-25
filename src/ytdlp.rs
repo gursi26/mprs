@@ -125,6 +125,8 @@ pub fn ytdlp_download(
         .arg("-x")
         .arg("--audio-format")
         .arg(audio_format)
+        .arg("--output")
+        .arg("mprs-audio.%(ext)s")
         .arg("-P")
         .arg(format!("/{}", dest.to_str().unwrap()))
         .arg("--")
