@@ -1,6 +1,7 @@
 # music-player-rs
 
-# TODOs
+## TODOs
+
 - [ ] Add `edit` command to edit song name and artist name
 - [ ] Add `move` command to move song to another playlist
 - [ ] Add `copy` command to copy song to another playlist (perhaps as a subcommand of `move`)
