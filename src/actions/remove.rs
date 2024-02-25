@@ -88,7 +88,7 @@ pub fn mprs_remove(args: &RemoveArgs, config: &UserConfig)
 
         let removed_song_title = Path::new(removed_song.file_stem().unwrap()).file_name().unwrap();
         let removed_from_playlist = Path::new(removed_song.parent().unwrap()).file_name().unwrap();
-        println!("Removed \"{:?}\" from playlist \"{:?}\".", removed_song_title, removed_from_playlist);
+        println!("Removed {:?} from playlist {:?}.", removed_song_title, removed_from_playlist);
 
         remove_file(removed_song.to_owned()).unwrap();
         return;
@@ -116,7 +116,7 @@ pub fn mprs_remove(args: &RemoveArgs, config: &UserConfig)
 
     let removed_song_title = Path::new(removed_song.file_stem().unwrap()).file_name().unwrap();
     let removed_from_playlist = Path::new(removed_song.parent().unwrap()).file_name().unwrap();
-    println!("Removed \"{:?}\" from playlist \"{:?}\".", removed_song_title, removed_from_playlist);
+    println!("Removed {:?} from playlist {:?}.", removed_song_title, removed_from_playlist);
 
     remove_file(removed_song.to_owned()).unwrap();
 }
