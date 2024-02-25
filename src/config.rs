@@ -41,6 +41,10 @@ pub fn init_config() {
     if config_path.exists() {
         return;
     }
+    // prompt user to ask for preferred music directory
+    // ...
+    // ~ -> home_dir
+    // ./ -> executable curr_dir
     let mut config_file = OpenOptions::new()
         .write(true)
         .create(true)
@@ -48,6 +52,7 @@ pub fn init_config() {
         .expect("Could not open file.");
 
     let default_config = UserConfigYAML::default();
+    // TODO change default_config.base_dir = preferred music_home_dir
     serde_yaml::to_writer(config_file, &default_config).unwrap();
 }
 
