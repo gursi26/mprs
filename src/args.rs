@@ -68,6 +68,11 @@ pub struct AddArgs {
     #[arg()]
     pub query_term: String,
 
+    /// Set flag if query term should be used as a link (video/playlist link)
+    #[arg(short = 'l', long = "link", action = ArgAction::SetTrue)]
+    pub link: bool,
+
+
     /// The playlist to add the song to
     #[arg(short = 'p', long = "playlist", default_value = "liked")]
     pub playlist: String,

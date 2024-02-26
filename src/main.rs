@@ -12,6 +12,7 @@ use crate::actions::play::mprs_play;
 use crate::actions::list::mprs_list;
 use crate::actions::open::mprs_open;
 use crate::actions::mv_cpy::mprs_move;
+use crate::ytdlp::ytdlp_get_info_from_link;
 
 use args::*;
 use clap::Parser;

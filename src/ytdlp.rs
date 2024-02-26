@@ -114,6 +114,38 @@ async fn search_thread_spawn(query_term: &String, n_results: i32) -> Result<Vec<
     Ok(parts)
 }
 
+pub fn ytdlp_get_info_from_link(link: &String) -> Vec<(String, String, String)> {
+    let output = std::process::Command::new("yt-dlp")
+        .arg(link)
+        .arg("--get-title")
+        .arg("--default-search")
+        .arg("ytsearch")
+        .arg("--print")
+        .arg("uploader")
+        .arg("--get-id")
+        .output()
+        .unwrap();
+
+    let string_output = String::from_utf8_lossy(&output.stdout);
+
+    let mut parts = string_output
+        .split("\n")
+        .map(|x| x.to_string())
+        .collect::<Vec<String>>();
+
+    parts.retain(|x| x != "");
+    let n_results = parts.len() / 3;
+    let mut results: Vec<(String, String, String)> = Vec::new();
+
+    for i in 0..n_results {
+        let artist = parts[3 * i].clone();
+        let track_name = parts[3 * i + 1].clone();
+        let id = parts[3 * i + 2].clone();
+        results.push((track_name, artist, id));
+    }
+    results
+}
+
 
 pub fn ytdlp_download(
     video_id: &String,
