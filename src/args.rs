@@ -64,14 +64,9 @@ pub struct ListArgs {
 
 #[derive(Debug, Args)]
 pub struct AddArgs {
-    /// The search term for the song to be added
+    /// The search term/link for the song/playlist to be downloaded (links must start with https)
     #[arg()]
     pub query_term: String,
-
-    /// Set flag if query term should be used as a link (video/playlist link)
-    #[arg(short = 'l', long = "link", action = ArgAction::SetTrue)]
-    pub link: bool,
-
 
     /// The playlist to add the song to
     #[arg(short = 'p', long = "playlist", default_value = "liked")]

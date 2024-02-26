@@ -35,7 +35,7 @@ pub async fn mprs_add(args: &AddArgs, config: &UserConfig) {
     let mut save_path = config.base_dir.clone();
     save_path.push(&args.playlist);
 
-    if !args.link {
+    if !args.query_term.starts_with("https") {
         let (id_vec, results_vec) = search_ytdlp(&args.query_term, N_RESULTS_PER_THREAD).await;
         print_table(&results_vec);
 
@@ -50,7 +50,7 @@ pub async fn mprs_add(args: &AddArgs, config: &UserConfig) {
         let song_name = results_vec[id_idx as usize][0].clone().replace("/", "");
 
         if ytdlp_download(video_id, &config.audio_format, &save_path) {
-            println!("Successfully downloaded {} to {:?}", &song_name, save_path);
+            println!("Successfully downloaded \"{}\" to {:?}", &song_name, save_path);
         }
 
         save_path.push(format!("mprs-audio.{}", config.audio_format));
@@ -69,7 +69,7 @@ pub async fn mprs_add(args: &AddArgs, config: &UserConfig) {
 
         for (track_name, artist, id) in tracks_info {
             if ytdlp_download(&id, &config.audio_format, &save_path) {
-                println!("Successfully downloaded {} to {:?}", track_name, save_path);
+                println!("Successfully downloaded \"{}\" to {:?}", track_name, save_path);
             }
 
             save_path.push(format!("mprs-audio.{}", config.audio_format));
