@@ -2,6 +2,7 @@
 
 ## TODOs
 
+- [ ] clean up readme and add install instructions + demo pictures/videos (after visualizer is done)
 - [ ] Cap search results based on `max_n_results` or something in `config.yaml`
 - [ ] Validate user config options from `config.yaml` 
 - [ ] Move user track selection to separate function + add error checking for user input
