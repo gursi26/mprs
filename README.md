@@ -6,6 +6,7 @@
 - [x] Add `move` command to move song to another playlist
 - [x] Add `copy` command to copy song to another playlist (perhaps as a subcommand of `move`)
 - [ ] Find other audio playback libraries that allow seeking
+- [ ] Fix `n` keystroke for `next` command in player (currently crashes the program).
 - [x] Multithread yt-dlp search for faster results
 - [x] Allow download of entire yt playlist
 - [x] Allow download of tracks from a given link
