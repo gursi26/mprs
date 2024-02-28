@@ -62,6 +62,7 @@ pub fn get_track_name(track_path: &PathBuf) -> String {
 }
 
 pub fn print_table(table_content: &Vec<Vec<String>>) {
+    let size = termsize::get().unwrap();
     let mut table = Table::new();
 
     let mut row_vec: Vec<Cell>;
@@ -81,7 +82,7 @@ pub fn print_table(table_content: &Vec<Vec<String>>) {
         .load_preset(UTF8_FULL)
         .apply_modifier(UTF8_ROUND_CORNERS)
         .set_content_arrangement(ContentArrangement::Dynamic)
-        .set_width(200);
+        .set_width(size.cols);
 
     println!("{table}");
 }

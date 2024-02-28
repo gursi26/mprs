@@ -18,13 +18,12 @@ use args::*;
 use clap::Parser;
 use config::{init_config, parse_config_file};
 
-#[tokio::main]
-async fn main() {
+fn main() {
     init_config();
     let user_config = parse_config_file();
     let args = MusicPlayerArgs::parse();
     match args.action_type {
-        ActionType::Add(ref add_args) => mprs_add(add_args, &user_config).await,
+        ActionType::Add(ref add_args) => mprs_add(add_args, &user_config),
         ActionType::Remove(ref remove_args) => mprs_remove(remove_args, &user_config),
         ActionType::Create(ref create_args) => mprs_create(create_args, &user_config),
         ActionType::Play(ref play_args) => mprs_play(play_args, &user_config),

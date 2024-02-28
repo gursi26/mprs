@@ -104,9 +104,9 @@ fn ui(app: &App, frame: &mut Frame) {
 
     let widths = [
         Constraint::Length(10),
-        Constraint::Length(200),
-        Constraint::Length(30),
-        Constraint::Length(20),
+        Constraint::Length(170),
+        Constraint::Length(40),
+        Constraint::Length(15),
         Constraint::Length(10),
     ];
     let table = Table::new(rows, widths)

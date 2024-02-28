@@ -87,6 +87,8 @@ pub fn parse_config_file() -> UserConfig {
         serde_yaml::from_reader(config_file).expect("Could not read values lmao");
 
     let filled_user_config = fill_uninitialized_values(user_config_yaml);
-    let _ = create_dir_all(&filled_user_config.base_dir);
+    let mut base_dir = filled_user_config.base_dir.clone();
+    base_dir.push("liked");
+    let _ = create_dir_all(base_dir);
     filled_user_config
 }

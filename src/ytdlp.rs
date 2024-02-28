@@ -1,18 +1,18 @@
 use std::process::Stdio;
 use std::path::PathBuf;
 use std::error::Error;
-use tokio::process::Command;
+// use tokio::process::Command;
 use tokio::try_join;
-
+use std::process::Command;
+use std::thread;
 
 static N_OUTPUT_ITEMS: i16 = 5;
-static N_THREADS: i16 = 10;
 
-pub async fn search_ytdlp(
+pub fn search_ytdlp(
     query: &String,
     n_results: i16,
 ) -> (Vec<String>, Vec<Vec<String>>) {
-    let mut parts = threaded_search(query, n_results as i32).await.unwrap();
+    let mut parts = threaded_search(query, n_results as i32).unwrap();
     parts.retain(|x| *x != String::from(""));
 
     let mut id_vec: Vec<String> = Vec::new();
@@ -25,7 +25,7 @@ pub async fn search_ytdlp(
         String::from("Upload Date"),
     ]);
 
-    for i in 0..(n_results * N_THREADS) {
+    for i in 0..(parts.len() as i16 / N_OUTPUT_ITEMS) {
         let artist = parts[(N_OUTPUT_ITEMS * i) as usize].clone();
         let upload_date = parts[(N_OUTPUT_ITEMS * i + 1) as usize].clone();
         let name = parts[(N_OUTPUT_ITEMS * i + 2) as usize].clone();
@@ -49,7 +49,7 @@ pub async fn search_ytdlp(
     (id_vec, search_results)
 }
 
-async fn threaded_search(query_term: &String, n_results: i32) -> Result<Vec<String>, Box<dyn Error>> {
+fn threaded_search(query_term: &String, n_results: i32) -> Result<Vec<String>, Box<dyn Error>> {
     let query_term_full = [
         " audio",
         " official",
@@ -63,55 +63,41 @@ async fn threaded_search(query_term: &String, n_results: i32) -> Result<Vec<Stri
         " full lyric video",
     ]
     .map(|x| format!("{}{}", query_term, x));
-    let mut results = try_join!(
-        async { search_thread_spawn(&query_term_full[0], n_results).await },
-        async { search_thread_spawn(&query_term_full[1], n_results).await },
-        async { search_thread_spawn(&query_term_full[2], n_results).await },
-        async { search_thread_spawn(&query_term_full[3], n_results).await },
-        async { search_thread_spawn(&query_term_full[4], n_results).await },
-        async { search_thread_spawn(&query_term_full[5], n_results).await },
-        async { search_thread_spawn(&query_term_full[6], n_results).await },
-        async { search_thread_spawn(&query_term_full[7], n_results).await },
-        async { search_thread_spawn(&query_term_full[8], n_results).await },
-        async { search_thread_spawn(&query_term_full[9], n_results).await },
-    )?;
 
-    let mut output = Vec::new();
-    output.append(&mut results.0);
-    output.append(&mut results.1);
-    output.append(&mut results.2);
-    output.append(&mut results.3);
-    output.append(&mut results.4);
-    output.append(&mut results.5);
-    output.append(&mut results.6);
-    output.append(&mut results.7);
-    output.append(&mut results.8);
-    output.append(&mut results.9);
-    Ok(output)
-}
+    let mut handles = Vec::new();
+    for query_term in query_term_full {
+        let handle = thread::spawn(move || {
+            let output = Command::new("yt-dlp")
+                .arg(query_term)
+                .arg("--get-title")
+                .arg("--default-search")
+                .arg(format!("ytsearch{}", n_results))
+                .arg("--get-duration")
+                .arg("--print")
+                .arg("uploader")
+                .arg("--print")
+                .arg("upload_date")
+                .arg("--get-id")
+                .output()
+                .unwrap();
 
-async fn search_thread_spawn(query_term: &String, n_results: i32) -> Result<Vec<String>, Box<dyn Error>> {
-    let output = Command::new("yt-dlp")
-        .arg(query_term)
-        .arg("--get-title")
-        .arg("--default-search")
-        .arg(format!("ytsearch{}", n_results))
-        .arg("--get-duration")
-        .arg("--print")
-        .arg("uploader")
-        .arg("--print")
-        .arg("upload_date")
-        .arg("--get-id")
-        .output()
-        .await?;
+            // Convert the output to a String
+            let string_output = String::from_utf8_lossy(&output.stdout);
+            let parts = string_output
+                .split("\n")
+                .map(|x| x.to_string())
+                .collect::<Vec<String>>();
+            parts
+        });
+        handles.push(handle);
+    }
 
-    // Convert the output to a String
-    let string_output = String::from_utf8_lossy(&output.stdout);
-    let parts = string_output
-        .split("\n")
-        .map(|x| x.to_string())
-        .collect::<Vec<String>>();
-    Ok(parts)
+    let mut outputs = Vec::new();
+    for handle in handles {
+        let mut output = handle.join().unwrap();
+        outputs.append(&mut output);
+    }
+    Ok(outputs)
 }
 
 pub fn ytdlp_get_info_from_link(link: &String) -> Vec<(String, String, String)> {
@@ -166,7 +152,6 @@ pub fn ytdlp_download(
         .output();
 
     if let Ok(success) = output {
-        // println!("{}", String::from_utf8_lossy(&success.stdout));
         return true;
     }
     false

@@ -10,7 +10,7 @@ use std::io::{stdout, Write};
 
 static N_RESULTS_PER_THREAD: i16 = 3;
 
-pub async fn mprs_add(args: &AddArgs, config: &UserConfig) {
+pub fn mprs_add(args: &AddArgs, config: &UserConfig) {
     if !list_dir(&base_dir())
         .into_iter()
         .map(|x| {
@@ -36,7 +36,7 @@ pub async fn mprs_add(args: &AddArgs, config: &UserConfig) {
     save_path.push(&args.playlist);
 
     if !args.query_term.starts_with("https") {
-        let (id_vec, results_vec) = search_ytdlp(&args.query_term, N_RESULTS_PER_THREAD).await;
+        let (id_vec, results_vec) = search_ytdlp(&args.query_term, N_RESULTS_PER_THREAD);
         print_table(&results_vec);
 
         print!("Select song by number : ");
