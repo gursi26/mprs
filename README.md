@@ -13,8 +13,8 @@
 - [ ] Display album name + album cover (and maybe lyrics) on play screen with spotdl
 - [ ] Switch to full TUI
 - [ ] Play audio through macos native AVFAudio + whatever windows/linux uses 
-    - [https://developer.apple.com/documentation/avfaudio](https://developer.apple.com/documentation/avfaudio)
-    - [https://github.com/delannoyk/AudioPlayer](https://github.com/delannoyk/AudioPlayer)
+  - [https://developer.apple.com/documentation/avfaudio](https://developer.apple.com/documentation/avfaudio)
+  - [https://github.com/delannoyk/AudioPlayer](https://github.com/delannoyk/AudioPlayer)
 - [ ] System wide key capture for forward, back and play/pause keyboard buttons (may also be os specific)
 - [x] Add `move` command to move song to another playlist
 - [x] Add `copy` command to copy song to another playlist (perhaps as a subcommand of `move`)
