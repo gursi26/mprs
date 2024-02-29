@@ -8,9 +8,11 @@
 - [ ] Move user track selection to separate function + add error checking for user input
 - [ ] Add `edit` command to edit song name and artist name
 - [ ] Add custom `base_dir` support from `config.yaml`
-- [ ] Add visualizer (RustFFT + Tokio + Rayon for async display and calculation of FFT)
 - [ ] Switch to spotdl + SpotifyAPI for search (client credentials oauth flow for SpotifyAPI)
 - [ ] Display album name + album cover (and maybe lyrics) on play screen with spotdl
+- [ ] Add volume normalization
+- [ ] Add visualizer (RustFFT + Tokio + Rayon for async display and calculation of FFT)
+- [ ] Add seeking during audio playback
 - [ ] Switch to full TUI
 - [ ] Play audio through macos native AVFAudio + whatever windows/linux uses 
   - [https://developer.apple.com/documentation/avfaudio](https://developer.apple.com/documentation/avfaudio)
