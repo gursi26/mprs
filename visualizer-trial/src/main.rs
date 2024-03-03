@@ -24,9 +24,9 @@ const FFT_WINDOW: i32 =
     ((256 as u64 / 107 as u64) * FREQUENCY_RESOLUTION as u64).next_power_of_two() as i32;
 
 // const AUDIO_PATH: &str = "/Users/gursi/Desktop/60 BPM - Metronome-[AudioTrimmer.com].mp3";
-const AUDIO_PATH: &str = "/Users/gursi/Desktop/gurenge.mp3";
+// const AUDIO_PATH: &str = "/Users/gursi/Desktop/gurenge.mp3";
 // const AUDIO_PATH: &str = "/Users/gursi/mprs-music/rn/ハルジオン.mp3";
-// const AUDIO_PATH: &str = "/Users/gursi/mprs-music/rn/Inferno.mp3";
+const AUDIO_PATH: &str = "/Users/gursi/mprs-music/rn/Inferno.mp3";
 const FORCE_CACHE_REFRESH: bool = false;
 
 fn main() {
@@ -80,22 +80,22 @@ fn main() {
             .collect::<Vec<i32>>();
 
         for j in 0..(new_chunk.len() as usize) {
-            let curr_fft_value = (new_chunk[j] * h as f32) as i32;
+            let curr_fft_value = (new_chunk[j] * h as f32 * 0.5) as i32;
             let (start_x_id, end_x_id) = (bar_start_idxs[j], bar_start_idxs[j + 1]);
             d.draw_rectangle(
                 start_x_id,
-                h - curr_fft_value,
+                (h / 2) - curr_fft_value,
                 end_x_id - start_x_id,
-                curr_fft_value,
+                curr_fft_value * 2,
                 Color::WHITE,
             );
 
             let border_offset = 2;
             d.draw_rectangle(
                 start_x_id + border_offset,
-                h - curr_fft_value + border_offset,
+                (h / 2) - curr_fft_value + border_offset,
                 end_x_id - start_x_id - (border_offset * 2),
-                curr_fft_value - (border_offset * 2),
+                curr_fft_value * 2 - (border_offset * 2),
                 Color::BLACK,
             );
         }
@@ -278,9 +278,9 @@ fn compute_fft(audio_path: &PathBuf) -> Vec<Vec<f32>> {
             let v = output_vec[j][k];
             output_vec[j][k] = (v - min) * scale;
             if output_vec[j][k] < 0.3 {
-                output_vec[j][k] *= 2.0;
-            } else if output_vec[j][k] < 0.5 {
                 output_vec[j][k] *= 1.5;
+            } else if output_vec[j][k] < 0.5 {
+                output_vec[j][k] *= 1.2;
             }
         }
     }
