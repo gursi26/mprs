@@ -1,0 +1,12 @@
+[package]
+name = "visualizer-trial"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+itertools = "0.12.1"
+raylib = "3.7.0"
+rodio = "0.17.3"
+spectrum-analyzer = "1.5.0"
