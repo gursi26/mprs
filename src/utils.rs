@@ -38,7 +38,7 @@ pub fn base_dir() -> PathBuf {
 
 pub fn list_dir(path: &PathBuf) -> Vec<PathBuf> {
     let mut files: Vec<PathBuf> = read_dir(path).unwrap().map(|i| i.unwrap().path()).collect();
-    files.retain(|x| x.as_path().file_name().unwrap().to_str().unwrap() != ".DS_Store");
+    files.retain(|x| !x.as_path().file_name().unwrap().to_str().unwrap().to_string().starts_with("."));
     files
 }
 

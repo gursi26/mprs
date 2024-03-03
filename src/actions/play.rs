@@ -7,6 +7,7 @@ use rodio::{Decoder, OutputStream, Sink};
 use std::fs::File;
 use std::io::BufReader;
 use std::path::PathBuf;
+use std::time::Instant;
 use stopwatch::Stopwatch;
 
 use crate::utils::{get_duration, get_input_key, get_instruction_string, UserInput};
@@ -21,6 +22,7 @@ use ratatui::prelude::{CrosstermBackend, Frame, Terminal};
 use ratatui::{prelude::*, widgets::*};
 
 static TIME_UNTIL_BACK_SELF: u64 = 3;
+static BAR_MAX_HEIGHT: i32 = 100000;
 
 struct App {
     songs: Vec<(String, String, String, String)>,
@@ -169,8 +171,20 @@ fn ui(app: &App, frame: &mut Frame) {
         now_playing_layout[0],
     );
 
+    let size = termsize::get().unwrap();
+    let n_bars: usize = (0.7 * size.cols as f32) as usize;
+    let mut sparkline_data: Vec<u64> = (0..n_bars).map(|x| (x as u64) * app.start_time.elapsed().as_millis() as u64).collect();
+    sparkline_data.reverse();
+
+    let sparkline = Sparkline::default()
+        .block(Block::default().title("Sparkline").borders(Borders::ALL))
+        .data(&sparkline_data[..])
+        .max(BAR_MAX_HEIGHT as u64)
+        .direction(RenderDirection::RightToLeft)
+        .style(Style::default().light_blue());
+
     frame.render_widget(
-        Block::default().borders(Borders::ALL).title("Visualizer"),
+        sparkline.block(Block::default().borders(Borders::ALL).title("Visualizer")),
         visualizer_layout[1],
     );
 }
@@ -264,6 +278,7 @@ fn run(sink: &Sink, song_queue: Vec<PathBuf>) -> Result<()> {
 
     let mut i: i32 = 0;
     while i >= 0 && i <= (song_queue.len() as i32) {
+        let now = Instant::now();
         if sink.empty() {
             if i >= (song_queue.len() as i32) {
                 break;
@@ -300,6 +315,10 @@ fn run(sink: &Sink, song_queue: Vec<PathBuf>) -> Result<()> {
         t.draw(|f| {
             ui(&app, f);
         })?;
+
+        // let t = now.elapsed().as_millis();
+        // println!("{}", t);
+
 
         if app.should_quit {
             break;
