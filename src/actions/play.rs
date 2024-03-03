@@ -171,20 +171,20 @@ fn ui(app: &App, frame: &mut Frame) {
         now_playing_layout[0],
     );
 
-    let size = termsize::get().unwrap();
-    let n_bars: usize = (0.7 * size.cols as f32) as usize;
-    let mut sparkline_data: Vec<u64> = (0..n_bars).map(|x| (x as u64) * app.start_time.elapsed().as_millis() as u64).collect();
-    sparkline_data.reverse();
+    // let size = termsize::get().unwrap();
+    // let n_bars: usize = (0.7 * size.cols as f32) as usize;
+    // let mut sparkline_data: Vec<u64> = (0..n_bars).map(|x| (x as u64) * app.start_time.elapsed().as_millis() as u64).collect();
+    // sparkline_data.reverse();
 
-    let sparkline = Sparkline::default()
-        .block(Block::default().title("Sparkline").borders(Borders::ALL))
-        .data(&sparkline_data[..])
-        .max(BAR_MAX_HEIGHT as u64)
-        .direction(RenderDirection::RightToLeft)
-        .style(Style::default().light_blue());
+    // let sparkline = Sparkline::default()
+    //     .block(Block::default().title("Sparkline").borders(Borders::ALL))
+    //     .data(&sparkline_data[..])
+    //     .max(BAR_MAX_HEIGHT as u64)
+    //     .direction(RenderDirection::RightToLeft)
+    //     .style(Style::default().light_blue());
 
     frame.render_widget(
-        sparkline.block(Block::default().borders(Borders::ALL).title("Visualizer")),
+        Block::default().borders(Borders::ALL).title("Visualizer"),
         visualizer_layout[1],
     );
 }
