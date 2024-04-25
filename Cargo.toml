@@ -6,20 +6,15 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.80"
-async-process = "2.1.0"
-chrono = "0.4.34"
-clap = { version = "4.5.0", features = ["derive"] }
-comfy-table = "7.1.0"
-crossterm = "0.27.0"
+# chrono = "0.4.34"
+# comfy-table = "7.1.0"
+# crossterm = "0.27.0"
 dirs = "5.0.1"
-glob = "0.3.1"
-lofty = "0.18.2"
-rand = "0.8.5"
+# glob = "0.3.1"
+# lofty = "0.18.2"
+# rand = "0.8.5"
 ratatui = "0.26.1"
-rodio = "0.17.3"
 serde = { version = "1.0.196", features = ["derive"] }
-serde_yaml = "0.9.31"
-stopwatch = "0.0.7"
-termsize = "0.1.6"
-tokio = { version = "1.36.0", features = ["full"] }
+# stopwatch = "0.0.7"
+# termsize = "0.1.6"
+tokio = { version = "1.37.0", features = ["full"] }
