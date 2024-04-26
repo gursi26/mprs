@@ -5,7 +5,7 @@ mod state;
 mod track_queue;
 mod utils;
 
-use mpv::{check_next_prev_status, next_track, play_track, update_player_status, wait_for_player};
+use mpv::{next_track, play_track, update_player_status, wait_for_player};
 use state::AppState;
 use std::{
     fs::create_dir_all,
@@ -37,36 +37,21 @@ async fn main() {
     queue.curr_idx = 0;
     let curr_track = queue.get_curr_track_path().clone();
 
-    let mut app_state = AppState {
-        mpv_child: Arc::new(Mutex::new(Command::new("ls").spawn().unwrap())),
-        paused: Arc::new(Mutex::new(false)),
-        next_pressed: Arc::new(Mutex::new(false)),
-        prev_pressed: Arc::new(Mutex::new(false)),
-        track_queue: Arc::new(Mutex::new(queue)),
-    };
+    let mut app_state = Arc::new(Mutex::new(AppState {
+        mpv_child: Command::new("ls").spawn().unwrap(),
+        paused: false,
+        next_pressed: false,
+        prev_pressed: false,
+        track_queue: queue,
+    }));
 
-    let (c1, c2, c3) = (
-        Arc::clone(&app_state.paused),
-        Arc::clone(&app_state.next_pressed),
-        Arc::clone(&app_state.prev_pressed),
-    );
+    let mut as_g = app_state.lock().unwrap();
+    let rc_clone = Arc::clone(&app_state);
 
-    let player_update_handle = tokio::task::spawn(async {
-        update_player_status(c1, c2, c3, 10).await;
-    });
+    play_track(&mut as_g, &curr_track);
+    drop(as_g);
 
-    let (c1, c2, c3, c4) = (
-        Arc::clone(&app_state.track_queue),
-        Arc::clone(&app_state.mpv_child),
-        Arc::clone(&app_state.next_pressed),
-        Arc::clone(&app_state.prev_pressed),
-    );
-    let keybind_handle = tokio::task::spawn(async {
-        check_next_prev_status(c1, c2, c3, c4, 5).await;
-    });
-    play_track(Arc::clone(&app_state.mpv_child), &curr_track);
-
-    // cleanup
-    wait_for_player(Arc::clone(&app_state.mpv_child));
-    std::mem::drop(player_update_handle);
+    let player_update_handle = tokio::task::spawn(async move {
+        update_player_status(rc_clone, 10).await;
+    }).await.unwrap();
 }

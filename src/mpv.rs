@@ -17,17 +17,16 @@ pub fn kill_track(mpv_child: Arc<Mutex<Child>>) {
     child.kill().unwrap();
 }
 
-pub fn wait_for_player(mpv_child: Arc<Mutex<Child>>) {
-    let mut child = mpv_child.lock().unwrap();
-    child.wait().unwrap();
+pub fn wait_for_player(app_state: Arc<Mutex<AppState>>) {
+    let mut app_state_rc = app_state.lock().unwrap();
+    app_state_rc.mpv_child.wait().unwrap();
 }
 
 // TODO: replace track path with track id and lookup in db
-pub fn play_track(mpv_child: Arc<Mutex<Child>>, track_path: &PathBuf) {
-    let mut child = mpv_child.lock().unwrap();
-    child.kill();
+pub fn play_track(app_state: &mut AppState, track_path: &PathBuf) {
+    app_state.mpv_child.kill().unwrap();
 
-    *child = Command::new("mpv")
+    app_state.mpv_child = Command::new("mpv")
         .arg(track_path.to_str().unwrap())
         .arg("--no-terminal")
         .arg(format!(
@@ -38,19 +37,25 @@ pub fn play_track(mpv_child: Arc<Mutex<Child>>, track_path: &PathBuf) {
         .unwrap();
 }
 
-pub fn next_track(q: Arc<Mutex<TrackQueue>>, mpv_child: Arc<Mutex<Child>>) {
-    let mut q_g = q.lock().unwrap();
-
-    q_g.next_track();
-    play_track(mpv_child, q_g.get_curr_track_path());
+pub fn next_track(app_state: &mut AppState) {
+    app_state.track_queue.next_track();
+    let track_ref = app_state.track_queue.get_curr_track_path().clone();
+    play_track(
+        app_state,
+        &track_ref
+    );
 }
 
-pub async fn update_player_status(
-    paused: Arc<Mutex<bool>>,
-    next_pressed: Arc<Mutex<bool>>,
-    prev_pressed: Arc<Mutex<bool>>,
-    sleep_millis: u64,
-) {
+pub fn prev_track(app_state: &mut AppState) {
+    app_state.track_queue.prev_track();
+    let track_ref = app_state.track_queue.get_curr_track_path().clone();
+    play_track(
+        app_state,
+        &track_ref
+    );
+}
+
+pub async fn update_player_status(app_state: Arc<Mutex<AppState>>, sleep_millis: u64) {
     let ipc_fp = get_ipc_path();
     let mut prev_file_contents = String::new();
     loop {
@@ -63,43 +68,22 @@ pub async fn update_player_status(
             prev_file_contents = file_contents;
         }
 
-        dbg!(&prev_file_contents);
-
-        let (mut paused_g, mut next_pressed_g, mut prev_pressed_g) = (
-            paused.lock().unwrap(),
-            next_pressed.lock().unwrap(),
-            prev_pressed.lock().unwrap(),
-        );
-
+        let mut app_state_rc = app_state.lock().unwrap();
         let mut split_contents = prev_file_contents.split_whitespace();
 
-        *paused_g = parse_bool(split_contents.next().unwrap());
-        *next_pressed_g = parse_bool(split_contents.next().unwrap());
-        *prev_pressed_g = parse_bool(split_contents.next().unwrap());
+        app_state_rc.paused = parse_bool(split_contents.next().unwrap());
+        app_state_rc.next_pressed = parse_bool(split_contents.next().unwrap());
+        app_state_rc.prev_pressed = parse_bool(split_contents.next().unwrap());
 
-        drop(paused_g);
-        drop(next_pressed_g);
-        drop(prev_pressed_g);
-        sleep(Duration::from_millis(sleep_millis));
-    }
-}
-
-pub async fn check_next_prev_status(
-    q: Arc<Mutex<TrackQueue>>,
-    mpv_child: Arc<Mutex<Child>>,
-    next_pressed: Arc<Mutex<bool>>,
-    prev_pressed: Arc<Mutex<bool>>,
-    sleep_millis: u64,
-) {
-    loop {
-        let (mut next_pressed_g, mut prev_pressed_g) =
-            (next_pressed.lock().unwrap(), prev_pressed.lock().unwrap());
-
-        if *next_pressed_g {
-            next_track(Arc::clone(&q), Arc::clone(&mpv_child));
-            *next_pressed_g = false;
+        if app_state_rc.next_pressed {
+            app_state_rc.next_pressed = false;
+            next_track(&mut app_state_rc);
         }
 
+        if app_state_rc.prev_pressed {
+            app_state_rc.prev_pressed = false;
+            prev_track(&mut app_state_rc);
+        }
         sleep(Duration::from_millis(sleep_millis));
     }
 }
