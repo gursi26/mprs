@@ -7,6 +7,7 @@ mod utils;
 
 use mpv::{initialize_player, next_track, play_track, player_handler, wait_for_player};
 use state::AppState;
+use stopwatch::Stopwatch;
 use std::{
     fs::create_dir_all,
     path::PathBuf,
@@ -24,20 +25,22 @@ const MPV_STATUS_IPC_FILENAME: &str = ".mpv_status.txt";
 const MPV_LUASCRIPT_FILENAME: &str = "status_update.lua";
 
 const PLAYER_HANDLER_TIMEOUT_MS: u64 = 20;
+const PREV_SAME_TRACK_TIMEOUT_S: u64 = 3;
 
 #[tokio::main]
 async fn main() {
     init_files();
 
     let mut queue = TrackQueue::new();
-    queue.append(PathBuf::from_str("/Users/gursi/mprs-music/rn/kaw2.mp3").unwrap());
-    queue.append(PathBuf::from_str("/Users/gursi/mprs-music/rn/Visit to Hida.mp3").unwrap());
-    queue.curr_idx = 0;
+    queue.add_to_reg_queue(PathBuf::from_str("/Users/gursi/mprs-music/rn/kaw2.mp3").unwrap());
+    queue.add_to_reg_queue(PathBuf::from_str("/Users/gursi/mprs-music/rn/Visit to Hida.mp3").unwrap());
+    queue.play_next(PathBuf::from_str("/Users/gursi/mprs-music/rn/Gurenge.mp3").unwrap());
 
     let mut app_state = Arc::new(Mutex::new(AppState {
         mpv_child: Command::new("ls").spawn().unwrap(),
         paused: false,
         track_queue: queue,
+        track_clock: Stopwatch::new()
     }));
 
     let mut as_g = app_state.lock().unwrap();
