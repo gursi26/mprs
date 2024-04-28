@@ -12,9 +12,9 @@ pub struct AppState {
     pub track_queue: TrackQueue,
     pub track_clock: Stopwatch,
 
-    // // ui display attributes
-    // // TODO: Replace with db stuff when created (add track_db attribute, make track_list:
-    // // Vec<TrackInfo>)
+    // ui display attributes
+    // TODO: Replace with db stuff when created (add track_db attribute, make track_list:
+    // Vec<TrackInfo>)
     // pub filter_filter_options: Vec<String>,
     // pub filter_options: Vec<String>,
     // pub track_list: Vec<(String, String, String, String, u64)>,

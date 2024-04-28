@@ -6,6 +6,10 @@ use std::{
     str::FromStr,
 };
 
+use lofty::file::{AudioFile, TaggedFileExt};
+use lofty::probe::Probe;
+use lofty::tag::Accessor;
+
 use dirs::home_dir;
 
 use crate::{MPV_LUASCRIPT_FILENAME, MPV_STATUS_IPC_FILENAME, MUSIC_DIR};
@@ -72,4 +76,19 @@ pub fn check_spotdl_installed() {
     }
     eprintln!("spotdl installation not found! If you are using conda/venv, ensure that you are in the correct environment!");
     exit(1);
+}
+
+pub fn get_metadata(p: &PathBuf) -> Option<(String, Vec<String>, String, u32)> {
+    dbg!("attempted to read metadata on file", p);
+    let tagged_file = Probe::open(p).unwrap().read().unwrap();
+    let duration = tagged_file.properties().duration().as_secs() as u32;
+
+    if let Some(tag) = tagged_file.primary_tag() {
+        let title = tag.title().unwrap().as_ref().to_string();
+        let album = tag.album().unwrap().as_ref().to_string();
+        let artist = tag.artist().unwrap().as_ref().to_string();
+        Some((title, vec![artist], album, duration))
+    } else {
+        None
+    }
 }

@@ -5,8 +5,10 @@ mod state;
 mod track_queue;
 mod utils;
 mod spotdl;
+mod db;
 
 use mpv::{initialize_player, next_track, play_track, player_handler, wait_for_player};
+use db::TrackDB;
 use spotdl::{download_track, init_spotify_client, search_tracks};
 use state::AppState;
 use stopwatch::Stopwatch;
@@ -40,8 +42,18 @@ async fn main() {
 
     let mut spotify = init_spotify_client();
     let results = search_tracks(String::from("visit to hida"), 5, &mut spotify).await;
-    // dbg!(&results[0]);
-    // download_track(&results[0]);
+    dbg!(&results[0]);
+    download_track(&results[0]);
+
+    let results = search_tracks(String::from("dream lantern"), 5, &mut spotify).await;
+    dbg!(&results[0]);
+    download_track(&results[0]);
+
+    let mut db = TrackDB::new();
+    db.add_track(String::from("new_playlist"));
+
+    dbg!(db);
+    exit(1);
 
     let mut queue = TrackQueue::new();
     queue.add_to_reg_queue(PathBuf::from_str("/Users/gursi/mprs-music/rn/kaw2.mp3").unwrap());
