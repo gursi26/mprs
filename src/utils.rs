@@ -1,9 +1,19 @@
-use std::{fs::{create_dir_all, File}, io::Write, path::PathBuf, str::FromStr};
+use std::{
+    fs::{create_dir_all, File},
+    io::Write,
+    path::PathBuf,
+    process::{exit, Command, Stdio},
+    str::FromStr,
+};
 
-use crate::{MUSIC_DIR, MPV_STATUS_IPC_FILENAME, MPV_LUASCRIPT_FILENAME};
+use dirs::home_dir;
+
+use crate::{MPV_LUASCRIPT_FILENAME, MPV_STATUS_IPC_FILENAME, MUSIC_DIR};
 
 pub fn get_music_dir() -> PathBuf {
-    PathBuf::from_str(MUSIC_DIR).unwrap()
+    let mut d = home_dir().unwrap();
+    d.push(MUSIC_DIR);
+    d
 }
 
 pub fn get_ipc_path() -> PathBuf {
@@ -45,4 +55,15 @@ pub fn parse_bool(s: &str) -> bool {
     } else {
         false
     }
+}
+
+pub fn check_spotdl_installed() {
+    let out = String::from_utf8(Command::new("pip").arg("list").output().unwrap().stdout).unwrap();
+    for l in out.lines() {
+        if l.contains("spotdl") {
+            return;
+        }
+    }
+    eprintln!("spotdl installation not found! If you are using conda/venv, ensure that you are in the correct environment!");
+    exit(1);
 }

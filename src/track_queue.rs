@@ -11,7 +11,7 @@ pub enum TrackType {
 #[derive(Debug)]
 pub struct TrackQueue {
     pub reg_queue: Vec<PathBuf>,
-    pub ex_queue: Vec<PathBuf>, 
+    pub exp_queue: Vec<PathBuf>, 
     pub curr_track: TrackType,
     pub played_tracks: Vec<PathBuf>
 }
@@ -20,18 +20,18 @@ impl TrackQueue {
     pub fn new() -> Self {
         TrackQueue {
             reg_queue: Vec::new(),
-            ex_queue: Vec::new(),
+            exp_queue: Vec::new(),
             curr_track: TrackType::None,
             played_tracks: Vec::new(),
         }
     }
 
     pub fn play_next(&mut self, p: PathBuf) {
-        self.ex_queue.insert(0, p);
+        self.exp_queue.insert(0, p);
     }
 
     pub fn add_to_queue(&mut self, p: PathBuf) {
-        self.ex_queue.push(p);
+        self.exp_queue.push(p);
     }
 
     pub fn add_to_reg_queue(&mut self, p: PathBuf) {
@@ -55,8 +55,8 @@ impl TrackQueue {
 
         // get next track from explicit queue first, if empty look at regular queue
         // if both empty, reset regular queue to played tracks and call next track again
-        if self.ex_queue.len() > 0 {
-            self.curr_track = TrackType::ExQueueTrack(self.ex_queue.remove(0));
+        if self.exp_queue.len() > 0 {
+            self.curr_track = TrackType::ExQueueTrack(self.exp_queue.remove(0));
         } else if self.reg_queue.len() > 0 {
             self.curr_track = TrackType::RegQueueTrack(self.reg_queue.remove(0));
         } else {
@@ -71,7 +71,7 @@ impl TrackQueue {
         if self.played_tracks.len() > 0 {
             match self.curr_track.clone() {
                 TrackType::RegQueueTrack(t) => { self.reg_queue.insert(0, t) },
-                TrackType::ExQueueTrack(t) => { self.ex_queue.insert(0, t) },
+                TrackType::ExQueueTrack(t) => { self.exp_queue.insert(0, t) },
                 TrackType::None => {}
             }
             self.curr_track = TrackType::RegQueueTrack(self.played_tracks.pop().unwrap());

@@ -42,6 +42,7 @@ pub fn play_track(app_state: &mut AppState) {
     app_state.mpv_child = Command::new("mpv")
         .arg(track_path.to_str().unwrap())
         .arg("--no-terminal")
+        .arg("--no-audio-display")
         .arg("--audio-samplerate=192000")
         .arg("--audio-format=floatp")
         .arg(format!(
