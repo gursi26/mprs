@@ -29,6 +29,10 @@ const MPV_LUASCRIPT_FILENAME: &str = "status_update.lua";
 const PLAYER_HANDLER_TIMEOUT_MS: u64 = 20;
 const PREV_SAME_TRACK_TIMEOUT_S: u64 = 3;
 
+// TODO: Write tui code
+// TODO: Integrate trackdb code
+// TODO: Switch to Unix domain sockets for IPC
+
 #[tokio::main]
 async fn main() {
     init_files();
@@ -38,7 +42,6 @@ async fn main() {
     let results = search_tracks(String::from("visit to hida"), 5, &mut spotify).await;
     // dbg!(&results[0]);
     // download_track(&results[0]);
-    // exit(1);
 
     let mut queue = TrackQueue::new();
     queue.add_to_reg_queue(PathBuf::from_str("/Users/gursi/mprs-music/rn/kaw2.mp3").unwrap());
@@ -46,10 +49,8 @@ async fn main() {
     queue.play_next(PathBuf::from_str("/Users/gursi/mprs-music/rn/YUI - again.mp3").unwrap());
 
     let mut app_state = Arc::new(Mutex::new(AppState {
-        mpv_child: Command::new("ls").spawn().unwrap(),
-        paused: false,
         track_queue: queue,
-        track_clock: Stopwatch::new()
+        ..Default::default()
     }));
 
     let mut as_g = app_state.lock().unwrap();

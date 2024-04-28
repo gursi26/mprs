@@ -22,11 +22,15 @@ pub fn kill_track(mpv_child: Arc<Mutex<Child>>) {
 
 pub fn wait_for_player(app_state: Arc<Mutex<AppState>>) {
     let mut app_state_rc = app_state.lock().unwrap();
-    app_state_rc.mpv_child.wait().unwrap();
+    if let Some(child) = &mut app_state_rc.mpv_child {
+        child.wait().unwrap();
+    }
 }
 
 pub fn initialize_player(app_state: &mut AppState) {
-    app_state.mpv_child.kill().unwrap();
+    if let Some(child) = &mut app_state.mpv_child {
+        child.kill().unwrap();
+    }
     app_state.track_queue.next_track();
     play_track(app_state);
 }
@@ -37,9 +41,11 @@ pub fn play_track(app_state: &mut AppState) {
     let dbg_str = format!("Now playing: {}", track_path.to_str().unwrap());
     dbg!(dbg_str);
 
-    app_state.mpv_child.kill().unwrap();
+    if let Some(child) = &mut app_state.mpv_child {
+        child.kill().unwrap();
+    }
 
-    app_state.mpv_child = Command::new("mpv")
+    app_state.mpv_child = Some(Command::new("mpv")
         .arg(track_path.to_str().unwrap())
         .arg("--no-terminal")
         .arg("--no-audio-display")
@@ -50,7 +56,7 @@ pub fn play_track(app_state: &mut AppState) {
             get_luascript_path().to_str().unwrap()
         ))
         .spawn()
-        .unwrap();
+        .unwrap());
     app_state.track_clock = Stopwatch::start_new();
 }
 
@@ -71,8 +77,10 @@ pub async fn player_handler(app_state: Arc<Mutex<AppState>>, sleep_millis: u64) 
         let mut app_state_rc = app_state.lock().unwrap();
 
         // check if current track is over and play next next track if so
-        if let Some(status) = app_state_rc.mpv_child.try_wait().unwrap() {
-            next_track(&mut app_state_rc);
+        if let Some(child) = &mut app_state_rc.mpv_child {
+            if let Some(status) = child.try_wait().unwrap() {
+                next_track(&mut app_state_rc);
+            }
         }
 
         let file_contents = read_to_string(&ipc_fp).unwrap();
