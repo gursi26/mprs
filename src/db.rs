@@ -1,7 +1,8 @@
-use crate::utils::{get_metadata, get_newtracks_dir};
-use std::{collections::HashMap, fs::read_dir, path::PathBuf};
+use serde::{Deserialize, Serialize};
+use crate::utils::{get_cache_file_path, get_metadata, get_newtracks_dir};
+use std::{collections::HashMap, fs::{read_dir, File, OpenOptions}, io::{Write, Read}, path::PathBuf};
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct TrackInfo {
     pub id: u32,
     pub name: String,
@@ -17,7 +18,7 @@ impl TrackInfo {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct TrackDB {
     pub trackmap: HashMap<String, HashMap<String, Vec<u32>>>,
     pub tracklist: Vec<TrackInfo>,
@@ -26,6 +27,15 @@ pub struct TrackDB {
 }
 
 impl TrackDB {
+    pub fn init() -> Self {
+        let mut tdb = TrackDB::new();
+        let cache_path = get_cache_file_path();
+        if cache_path.exists() {
+            tdb.load_from_file();
+        }
+        tdb
+    }
+
     pub fn new() -> Self {
         let mut m = HashMap::new();
         m.insert("Playlists".to_string(), HashMap::new());
@@ -39,8 +49,29 @@ impl TrackDB {
         }
     }
 
+    pub fn save_to_file(&self) {
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(get_cache_file_path())
+            .unwrap();
+
+        let encoded: Vec<u8> = bincode::serialize(self).unwrap();
+        file.write_all(&encoded).unwrap();
+    }
+
+    pub fn load_from_file(&mut self) {
+        let mut file = File::open(get_cache_file_path()).unwrap();
+        let mut encoded = Vec::new();
+        file.read_to_end(&mut encoded).unwrap();
+
+        let decoded: Self = bincode::deserialize(&encoded).unwrap();
+        *self = decoded;
+    }
+
     // Adds all tracks in the newtracks directory to DB
-    pub fn add_track(&mut self, playlist: String) {
+    pub fn add_all_tracks(&mut self, playlist: String) {
         let newtracks_path = get_newtracks_dir();
         let newtracks = read_dir(&newtracks_path).unwrap();
         for t in newtracks {
@@ -50,6 +81,7 @@ impl TrackDB {
             }
             self.add_track_helper(&tp, playlist.clone());
         }
+        self.save_to_file();
     }
 
     fn add_track_helper(&mut self, track_path: &PathBuf, playlist: String) {

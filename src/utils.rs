@@ -26,6 +26,12 @@ pub fn get_newtracks_dir() -> PathBuf {
     mdir
 }
 
+pub fn get_cache_file_path() -> PathBuf {
+    let mut mdir = get_music_dir();
+    mdir.push(".cache");
+    mdir
+}
+
 pub fn get_ipc_path() -> PathBuf {
     let mut p = get_music_dir();
     p.push(MPV_STATUS_IPC_FILENAME);

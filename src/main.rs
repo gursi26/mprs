@@ -49,8 +49,8 @@ async fn main() {
     dbg!(&results[0]);
     download_track(&results[0]);
 
-    let mut db = TrackDB::new();
-    db.add_track(String::from("new_playlist"));
+    let mut db = TrackDB::init();
+    db.add_all_tracks(String::from("new_playlist"));
 
     dbg!(db);
     exit(1);
