@@ -16,6 +16,12 @@ pub fn get_music_dir() -> PathBuf {
     d
 }
 
+pub fn get_newtracks_dir() -> PathBuf {
+    let mut mdir = get_music_dir();
+    mdir.push("newtracks");
+    mdir
+}
+
 pub fn get_ipc_path() -> PathBuf {
     let mut p = get_music_dir();
     p.push(MPV_STATUS_IPC_FILENAME);

@@ -7,7 +7,7 @@ mod utils;
 mod spotdl;
 
 use mpv::{initialize_player, next_track, play_track, player_handler, wait_for_player};
-use spotdl::{init_spotify_client, search_tracks};
+use spotdl::{download_track, init_spotify_client, search_tracks};
 use state::AppState;
 use stopwatch::Stopwatch;
 use std::{
@@ -36,6 +36,9 @@ async fn main() {
 
     let mut spotify = init_spotify_client();
     let results = search_tracks(String::from("visit to hida"), 5, &mut spotify).await;
+    // dbg!(&results[0]);
+    // download_track(&results[0]);
+    // exit(1);
 
     let mut queue = TrackQueue::new();
     queue.add_to_reg_queue(PathBuf::from_str("/Users/gursi/mprs-music/rn/kaw2.mp3").unwrap());

@@ -1,4 +1,4 @@
-use std::{path::PathBuf, process::Command};
+use std::{path::PathBuf, process::{Command, Stdio}};
 use rspotify::{
     model::{AlbumId, SearchResult as rsptSearchResult, SearchType},
     prelude::*,
@@ -7,6 +7,8 @@ use rspotify::{
 
 use reqwest;
 use std::fs::File;
+
+use crate::utils::{get_music_dir, get_newtracks_dir};
 
 #[derive(Debug)]
 pub struct SearchResult {
@@ -50,7 +52,7 @@ fn get_creds() -> (String, String) {
 
     let file_contents = std::fs::read_to_string(location).unwrap();
     for l in file_contents.lines() {
-        if l.contains("client_id") {
+        if l.contains("client_id"){
             client_id.push_str(l.split("\"").collect::<Vec<&str>>()[3]);
         }
         if l.contains("client_secret") {
@@ -63,7 +65,6 @@ fn get_creds() -> (String, String) {
 
 pub fn init_spotify_client() -> ClientCredsSpotify {
     let (id, secret) = get_creds();
-    dbg!(&id, &secret);
     let creds = Credentials {
         id,
         secret: Some(secret),
@@ -115,4 +116,20 @@ pub async fn search_tracks(search_string: String, n_results: u32, spotify: &mut 
         }
     }
     parsed_results
+}
+
+pub fn download_track(track: &SearchResult) {
+    dbg!("Downloading track...");
+    let url = track.get_url();
+
+    Command::new("spotdl")
+        .arg(format!("{}", url))
+        .arg("--format")
+        .arg("mp3")
+        .arg("--output")
+        .arg(get_newtracks_dir().as_os_str().to_str().unwrap())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .output()
+        .unwrap();
 }
