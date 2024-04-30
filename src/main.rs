@@ -50,28 +50,36 @@ async fn main() {
     download_track(&results[0]);
 
     let mut db = TrackDB::init();
-    db.add_all_tracks(String::from("new_playlist"));
+    db.add_all_tracks(Some("new_playlist".to_string()));
 
-    dbg!(db);
-    exit(1);
+    let results = search_tracks(String::from("sparkle"), 5, &mut spotify).await;
+    dbg!(&results[0]);
+    download_track(&results[0]);
+    db.add_all_tracks(None);
 
-    let mut queue = TrackQueue::new();
-    queue.add_to_reg_queue(PathBuf::from_str("/Users/gursi/mprs-music/rn/kaw2.mp3").unwrap());
-    queue.add_to_reg_queue(PathBuf::from_str("/Users/gursi/mprs-music/rn/Visit to Hida.mp3").unwrap());
-    queue.play_next(PathBuf::from_str("/Users/gursi/mprs-music/rn/YUI - again.mp3").unwrap());
+    dbg!(&db);
 
-    let mut app_state = Arc::new(Mutex::new(AppState {
-        track_queue: queue,
-        ..Default::default()
-    }));
+    dbg!("removing...");
+    db.remove_track(2);
+    dbg!(&db);
 
-    let mut as_g = app_state.lock().unwrap();
-    let rc_clone = Arc::clone(&app_state);
+    // let mut queue = TrackQueue::new();
+    // queue.add_to_reg_queue(PathBuf::from_str("/Users/gursi/mprs-music/rn/kaw2.mp3").unwrap());
+    // queue.add_to_reg_queue(PathBuf::from_str("/Users/gursi/mprs-music/rn/Visit to Hida.mp3").unwrap());
+    // queue.play_next(PathBuf::from_str("/Users/gursi/mprs-music/rn/YUI - again.mp3").unwrap());
 
-    initialize_player(&mut as_g);
-    drop(as_g);
+    // let mut app_state = Arc::new(Mutex::new(AppState {
+    //     track_queue: queue,
+    //     ..Default::default()
+    // }));
 
-    let player_update_handle = tokio::task::spawn(async move {
-        player_handler(rc_clone, PLAYER_HANDLER_TIMEOUT_MS).await;
-    }).await.unwrap();
+    // let mut as_g = app_state.lock().unwrap();
+    // let rc_clone = Arc::clone(&app_state);
+
+    // initialize_player(&mut as_g);
+    // drop(as_g);
+
+    // let player_update_handle = tokio::task::spawn(async move {
+    //     player_handler(rc_clone, PLAYER_HANDLER_TIMEOUT_MS).await;
+    // }).await.unwrap();
 }

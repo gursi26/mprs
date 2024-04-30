@@ -28,7 +28,7 @@ pub fn get_newtracks_dir() -> PathBuf {
 
 pub fn get_cache_file_path() -> PathBuf {
     let mut mdir = get_music_dir();
-    mdir.push(".cache");
+    mdir.push(".trackdb");
     mdir
 }
 
@@ -84,16 +84,22 @@ pub fn check_spotdl_installed() {
     exit(1);
 }
 
-pub fn get_metadata(p: &PathBuf) -> Option<(String, Vec<String>, String, u32)> {
+pub fn get_metadata(p: &PathBuf) -> Option<(String, Option<Vec<String>>, Option<String>, u32)> {
     dbg!("attempted to read metadata on file", p);
     let tagged_file = Probe::open(p).unwrap().read().unwrap();
     let duration = tagged_file.properties().duration().as_secs() as u32;
 
     if let Some(tag) = tagged_file.primary_tag() {
         let title = tag.title().unwrap().as_ref().to_string();
-        let album = tag.album().unwrap().as_ref().to_string();
-        let artist = tag.artist().unwrap().as_ref().to_string();
-        Some((title, vec![artist], album, duration))
+        let album = match tag.album() {
+            Some(x) => Some(x.as_ref().to_string()),
+            None => None
+        };
+        let artist = match tag.artist() {
+            Some(x) => Some(vec![x.as_ref().to_string()]),
+            None => None
+        };
+        Some((title, artist, album, duration))
     } else {
         None
     }

@@ -2,18 +2,18 @@ use std::path::PathBuf;
 
 #[derive(Clone, Debug)]
 pub enum TrackType {
-    RegQueueTrack(PathBuf),
-    ExQueueTrack(PathBuf),
+    RegQueueTrack(u32),
+    ExQueueTrack(u32),
     None
 }
 
 // TODO: Change to queue to hold track id and play lookup in db
 #[derive(Debug)]
 pub struct TrackQueue {
-    pub reg_queue: Vec<PathBuf>,
-    pub exp_queue: Vec<PathBuf>, 
+    pub reg_queue: Vec<u32>,
+    pub exp_queue: Vec<u32>, 
     pub curr_track: TrackType,
-    pub played_tracks: Vec<PathBuf>
+    pub played_tracks: Vec<u32>
 }
 
 impl TrackQueue {
@@ -26,19 +26,19 @@ impl TrackQueue {
         }
     }
 
-    pub fn play_next(&mut self, p: PathBuf) {
+    pub fn play_next(&mut self, p: u32) {
         self.exp_queue.insert(0, p);
     }
 
-    pub fn add_to_queue(&mut self, p: PathBuf) {
+    pub fn add_to_queue(&mut self, p: u32) {
         self.exp_queue.push(p);
     }
 
-    pub fn add_to_reg_queue(&mut self, p: PathBuf) {
+    pub fn add_to_reg_queue(&mut self, p: u32) {
         self.reg_queue.push(p);
     }
 
-    pub fn get_curr_track(&self) -> Option<PathBuf> {
+    pub fn get_curr_track(&self) -> Option<u32> {
         match self.curr_track.clone() {
             TrackType::RegQueueTrack(t) => Some(t),
             TrackType::ExQueueTrack(t) => Some(t),
