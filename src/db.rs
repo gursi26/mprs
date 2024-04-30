@@ -1,3 +1,4 @@
+use log::debug;
 use serde::{Deserialize, Serialize};
 use std::fs::remove_file;
 use crate::utils::{get_cache_file_path, get_metadata, get_music_dir, get_newtracks_dir};
@@ -126,6 +127,7 @@ impl TrackDB {
         };
 
         let save_file_name = t_info.get_file_name();
+        debug!("Adding track : {:?}", t_info);
         self.trackmap.insert(new_track_id, t_info);
 
         // update playlist_map
@@ -188,6 +190,9 @@ impl TrackDB {
             .to_path_buf();
         save_path.push(save_file_name);
         std::fs::rename(track_path, save_path).unwrap();
+
+        debug!("Updated filter cache!")
+
     }
 
     pub fn remove_track(&mut self, track_id: u32) {

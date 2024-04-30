@@ -1,5 +1,7 @@
 use std::path::PathBuf;
 
+use log::debug;
+
 #[derive(Clone, Debug)]
 pub enum TrackType {
     RegQueueTrack(u32),
@@ -64,7 +66,7 @@ impl TrackQueue {
             self.played_tracks = Vec::new();
             self.next_track();
         }
-        dbg!(self);
+        debug!("{:?}", self);
     }
 
     pub fn prev_track(&mut self) {
@@ -76,6 +78,6 @@ impl TrackQueue {
             }
             self.curr_track = TrackType::RegQueueTrack(self.played_tracks.pop().unwrap());
         }
-        dbg!(self);
+        debug!("{:?}", self);
     }
 }

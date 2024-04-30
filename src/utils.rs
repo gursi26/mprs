@@ -44,6 +44,12 @@ pub fn get_luascript_path() -> PathBuf {
     p
 }
 
+pub fn init_functions() {
+    init_files();
+    check_spotdl_installed();
+    setup_logger().unwrap();
+}
+
 pub fn init_files() {
     // creates directory for music
     let mut music_dir_path = get_music_dir();
@@ -85,7 +91,6 @@ pub fn check_spotdl_installed() {
 }
 
 pub fn get_metadata(p: &PathBuf) -> Option<(String, Option<Vec<String>>, Option<String>, u32)> {
-    dbg!("attempted to read metadata on file", p);
     let tagged_file = Probe::open(p).unwrap().read().unwrap();
     let duration = tagged_file.properties().duration().as_secs() as u32;
 
@@ -103,4 +108,22 @@ pub fn get_metadata(p: &PathBuf) -> Option<(String, Option<Vec<String>>, Option<
     } else {
         None
     }
+}
+
+pub fn setup_logger() -> Result<(), fern::InitError> {
+    fern::Dispatch::new()
+        .format(|out, message, record| {
+            out.finish(format_args!(
+                "[{} {}] {}",
+                record.level(),
+                record.target(),
+                message
+            ))
+        })
+        .level_for("mprs", log::LevelFilter::Debug)
+        .level(log::LevelFilter::Off)
+        .chain(std::io::stdout())
+        .chain(fern::log_file("output.log")?)
+        .apply()?;
+    Ok(())
 }

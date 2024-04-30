@@ -1,4 +1,5 @@
 use std::{path::PathBuf, process::{Command, Stdio}};
+use log::debug;
 use rspotify::{
     model::{AlbumId, SearchResult as rsptSearchResult, SearchType},
     prelude::*,
@@ -73,6 +74,7 @@ pub fn init_spotify_client() -> ClientCredsSpotify {
 }
 
 pub async fn search_tracks(search_string: String, n_results: u32, spotify: &mut ClientCredsSpotify) -> Vec<SearchResult> {
+    debug!("Searching for query \'{}\'", &search_string);
     spotify.request_token().await.unwrap();
     let results = spotify
         .search(
@@ -119,7 +121,7 @@ pub async fn search_tracks(search_string: String, n_results: u32, spotify: &mut 
 }
 
 pub fn download_track(track: &SearchResult) {
-    dbg!("Downloading track...");
+    debug!("Downloading track : {:?}", track);
     let url = track.get_url();
 
     Command::new("spotdl")

@@ -1,3 +1,4 @@
+use log::debug;
 use stopwatch::Stopwatch;
 
 use crate::track_queue::TrackQueue;
@@ -45,25 +46,29 @@ pub fn play_track(app_state: &mut AppState) {
         return;
     }
 
-    let dbg_str = format!("Now playing: {}", track_path.to_str().unwrap());
-    dbg!(dbg_str);
+    debug!(
+        "Now playing : {}",
+        track_path.file_name().unwrap().to_str().unwrap()
+    );
 
     if let Some(child) = &mut app_state.mpv_child {
         child.kill().unwrap();
     }
 
-    app_state.mpv_child = Some(Command::new("mpv")
-        .arg(track_path.to_str().unwrap())
-        .arg("--no-terminal")
-        .arg("--no-audio-display")
-        .arg("--audio-samplerate=192000")
-        .arg("--audio-format=floatp")
-        .arg(format!(
-            "--script={}",
-            get_luascript_path().to_str().unwrap()
-        ))
-        .spawn()
-        .unwrap());
+    app_state.mpv_child = Some(
+        Command::new("mpv")
+            .arg(track_path.to_str().unwrap())
+            .arg("--no-terminal")
+            .arg("--no-audio-display")
+            .arg("--audio-samplerate=192000")
+            .arg("--audio-format=floatp")
+            .arg(format!(
+                "--script={}",
+                get_luascript_path().to_str().unwrap()
+            ))
+            .spawn()
+            .unwrap(),
+    );
     app_state.track_clock = Stopwatch::start_new();
 }
 
