@@ -9,7 +9,6 @@ pub enum TrackType {
     None
 }
 
-// TODO: Change to queue to hold track id and play lookup in db
 #[derive(Debug)]
 pub struct TrackQueue {
     pub reg_queue: Vec<u32>,

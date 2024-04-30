@@ -36,7 +36,6 @@ pub fn initialize_player(app_state: &mut AppState) {
     play_track(app_state);
 }
 
-// TODO: replace track path with track id and lookup in db
 pub fn play_track(app_state: &mut AppState) {
     let tp_opt = app_state.get_curr_track_path();
     let track_path: PathBuf;

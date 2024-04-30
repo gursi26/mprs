@@ -110,6 +110,26 @@ pub fn get_metadata(p: &PathBuf) -> Option<(String, Option<Vec<String>>, Option<
     }
 }
 
+pub fn set_metadata(p: &PathBuf, title: String, artists: Vec<String>, album: String) -> Option<(String, Option<Vec<String>>, Option<String>, u32)> {
+    let tagged_file = Probe::open(p).unwrap().read().unwrap();
+    let duration = tagged_file.properties().duration().as_secs() as u32;
+
+    if let Some(tag) = tagged_file.primary_tag() {
+        let title = tag.title().unwrap().as_ref().to_string();
+        let album = match tag.album() {
+            Some(x) => Some(x.as_ref().to_string()),
+            None => None
+        };
+        let artist = match tag.artist() {
+            Some(x) => Some(vec![x.as_ref().to_string()]),
+            None => None
+        };
+        Some((title, artist, album, duration))
+    } else {
+        None
+    }
+}
+
 pub fn setup_logger() -> Result<(), fern::InitError> {
     fern::Dispatch::new()
         .format(|out, message, record| {
