@@ -2,7 +2,7 @@ use log::debug;
 use serde::{Deserialize, Serialize};
 use std::fs::remove_file;
 use crate::utils::{get_cache_file_path, get_metadata, get_music_dir, get_newtracks_dir};
-use std::{collections::HashMap, fs::{read_dir, File, OpenOptions}, io::{Write, Read}, path::PathBuf};
+use std::{collections::BTreeMap, fs::{read_dir, File, OpenOptions}, io::{Write, Read}, path::PathBuf};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TrackInfo {
@@ -16,7 +16,8 @@ pub struct TrackInfo {
 
 impl TrackInfo {
     pub fn get_file_name(&self) -> String {
-        format!("{} - {}.mp3", self.name, self.id)
+        let s = format!("{} - {}.mp3", self.name, self.id);
+        s.replace("/", "")
     }
 
     pub fn get_file_path(&self) -> PathBuf {
@@ -28,8 +29,8 @@ impl TrackInfo {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TrackDB {
-    pub track_filter_cache: HashMap<String, HashMap<String, Vec<u32>>>,
-    pub trackmap: HashMap<u32, TrackInfo>,
+    pub track_filter_cache: BTreeMap<String, BTreeMap<String, Vec<u32>>>,
+    pub trackmap: BTreeMap<u32, TrackInfo>,
     pub max_id: u32,
 }
 
@@ -44,23 +45,23 @@ impl TrackDB {
     }
 
     pub fn new() -> Self {
-        let mut m = HashMap::new();
+        let mut m = BTreeMap::new();
 
-        let mut hm: HashMap<String, Vec<u32>> = HashMap::new();
+        let mut hm: BTreeMap<String, Vec<u32>> = BTreeMap::new();
         hm.insert("Liked".to_string(), Vec::new());
         m.insert("Playlists".to_string(), hm);
 
-        let mut hm: HashMap<String, Vec<u32>> = HashMap::new();
+        let mut hm: BTreeMap<String, Vec<u32>> = BTreeMap::new();
         hm.insert("None".to_string(), Vec::new());
         m.insert("Albums".to_string(), hm);
 
-        let mut hm: HashMap<String, Vec<u32>> = HashMap::new();
+        let mut hm: BTreeMap<String, Vec<u32>> = BTreeMap::new();
         hm.insert("None".to_string(), Vec::new());
         m.insert("Artists".to_string(), hm);
 
         TrackDB {
             track_filter_cache: m,
-            trackmap: HashMap::new(),
+            trackmap: BTreeMap::new(),
             max_id: 0,
         }
     }

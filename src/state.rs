@@ -1,4 +1,6 @@
 use ratatui::widgets::ListState;
+use ratatui::widgets::Row;
+use ratatui::widgets::TableState;
 use serde::Deserialize;
 use serde::Serialize;
 use std::path::PathBuf;
@@ -28,7 +30,7 @@ pub struct AppState<'a> {
     // ui display attributes
     pub filter_filter_options: (ListState, [&'a str; 4]),
     pub filter_options: (ListState, Vec<String>),
-    pub display_track_list: Vec<&'a TrackInfo>,
+    pub display_track_list: (TableState, Vec<Row<'a>>, Vec<u32>),
     pub curr_track_info: Option<&'a TrackInfo>,
     pub focused_window: FocusedWindow, // stateful attributes
 }
@@ -85,10 +87,10 @@ impl<'a> Default for AppState<'a> {
 
             filter_filter_options: (
                 ListState::default().with_selected(Some(0)),
-                ["All", "Playlists", "Artists", "Albums"],
+                ["Playlists", "Artists", "Albums", "All"],
             ),
             filter_options: (ListState::default().with_selected(Some(0)), Vec::new()),
-            display_track_list: Vec::new(),
+            display_track_list: (TableState::default().with_selected(Some(0)), Vec::new(), Vec::new()),
             curr_track_info: None,
             focused_window: FocusedWindow::FilterFilterOptions,
         }

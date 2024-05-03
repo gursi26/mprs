@@ -48,7 +48,7 @@ pub fn get_luascript_path() -> PathBuf {
 pub fn init_functions() {
     init_files();
     check_spotdl_installed();
-    setup_logger().unwrap();
+    // setup_logger().unwrap();
 }
 
 pub fn init_files() {
@@ -102,7 +102,13 @@ pub fn get_metadata(p: &PathBuf) -> Option<(String, Option<Vec<String>>, Option<
             None => None,
         };
         let artist = match tag.artist() {
-            Some(x) => Some(vec![x.as_ref().to_string()]),
+            Some(x) => Some(
+                x.as_ref()
+                    .to_string()
+                    .split("/")
+                    .map(|x| x.to_string())
+                    .collect::<Vec<String>>(),
+            ),
             None => None,
         };
         Some((title, artist, album, duration))
@@ -111,10 +117,14 @@ pub fn get_metadata(p: &PathBuf) -> Option<(String, Option<Vec<String>>, Option<
     }
 }
 
-fn remove_value_from_vec<T: PartialEq>(vec: &mut Vec<T>, value: &T) {
-    vec.retain(|x| x != value);
+pub fn wrap_string(s: &mut String, n: u32) {
+    let c = s.len() as u32 / n;
+    for i in 0..c {
+        s.insert((c * n) as usize, '\n');
+    }
 }
 
+// TODO: Fix this function
 pub fn set_metadata(
     p: &PathBuf,
     title: String,
@@ -149,6 +159,7 @@ pub enum UserInput {
     FocusRight,
     SelectLower,
     SelectUpper,
+    Select,
 }
 
 pub fn get_input_key() -> UserInput {
@@ -164,6 +175,7 @@ pub fn get_input_key() -> UserInput {
                     (KeyCode::Char('q'), _) => UserInput::Quit,
                     (KeyCode::Char('j'), _) => UserInput::SelectLower,
                     (KeyCode::Char('k'), _) => UserInput::SelectUpper,
+                    (KeyCode::Enter, _) => UserInput::Select,
                     _ => UserInput::DoNothing,
                 }
             } else {

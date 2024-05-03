@@ -31,6 +31,7 @@ const MPV_STATUS_IPC_FILENAME: &str = ".mpv_status.txt";
 const MPV_LUASCRIPT_FILENAME: &str = "status_update.lua";
 
 const PLAYER_HANDLER_TIMEOUT_MS: u64 = 20;
+const UI_SLEEP_DURATION: u64 = 10;
 const PREV_SAME_TRACK_TIMEOUT_S: u64 = 3;
 
 // TODO: Write tui code
@@ -38,26 +39,25 @@ const PREV_SAME_TRACK_TIMEOUT_S: u64 = 3;
 
 #[tokio::main]
 async fn main() {
-    // init_functions();
-
-    // let mut spotify = init_spotify_client();
+    init_functions();
+    let mut spotify = init_spotify_client();
     let mut app_state = Arc::new(Mutex::new(AppState::default()));
-    // let player_update_state_arc = Arc::clone(&app_state);
-    // let mut curr_app_state = app_state.lock().unwrap();
+
+    let player_update_state_arc = Arc::clone(&app_state);
+
+    let player_update_handle = tokio::task::spawn(async move {
+        player_handler(player_update_state_arc, PLAYER_HANDLER_TIMEOUT_MS).await;
+    });
+
     run(Arc::clone(&app_state)).await.unwrap();
+    drop(player_update_handle);
 
-    // let results = search_tracks(String::from("visit to hida"), 5, &mut spotify).await;
-    // download_track(&results[0]);
-    // let results = search_tracks(String::from("dream lantern"), 5, &mut spotify).await;
-    // download_track(&results[0]);
-    // curr_app_state.track_db.add_all_tracks(Some("playlist1".to_string()));
+    let curr_rc = Arc::clone(&app_state);
+    let mut curr_app_state = curr_rc.lock().unwrap();
 
-    // curr_app_state.add_playlist_to_queue("playlist1".to_string());
-
-    // initialize_player(&mut curr_app_state);
-    // drop(curr_app_state);
-
-    // let player_update_handle = tokio::task::spawn(async move {
-    //     player_handler(player_update_state_arc, PLAYER_HANDLER_TIMEOUT_MS).await;
-    // }).await.unwrap();
+    match &mut curr_app_state.mpv_child {
+        Some(c) => {c.kill().unwrap();},
+        None => {}
+    };
+    exit(0);
 }
