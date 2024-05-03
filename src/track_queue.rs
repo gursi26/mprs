@@ -27,6 +27,16 @@ impl TrackQueue {
         }
     }
 
+    pub fn shuffle_reg_queue(&mut self) {
+
+    }
+
+    pub fn empty_queue(&mut self) {
+        self.reg_queue = Vec::new();
+        self.exp_queue = Vec::new();
+        self.played_tracks = Vec::new();
+    }
+
     pub fn play_next(&mut self, p: u32) {
         self.exp_queue.insert(0, p);
     }

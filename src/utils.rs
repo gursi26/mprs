@@ -6,6 +6,7 @@ use std::{
     str::FromStr,
 };
 
+use crossterm::event::{KeyCode, KeyModifiers};
 use lofty::file::{AudioFile, TaggedFileExt};
 use lofty::probe::Probe;
 use lofty::tag::Accessor;
@@ -98,11 +99,11 @@ pub fn get_metadata(p: &PathBuf) -> Option<(String, Option<Vec<String>>, Option<
         let title = tag.title().unwrap().as_ref().to_string();
         let album = match tag.album() {
             Some(x) => Some(x.as_ref().to_string()),
-            None => None
+            None => None,
         };
         let artist = match tag.artist() {
             Some(x) => Some(vec![x.as_ref().to_string()]),
-            None => None
+            None => None,
         };
         Some((title, artist, album, duration))
     } else {
@@ -110,7 +111,16 @@ pub fn get_metadata(p: &PathBuf) -> Option<(String, Option<Vec<String>>, Option<
     }
 }
 
-pub fn set_metadata(p: &PathBuf, title: String, artists: Vec<String>, album: String) -> Option<(String, Option<Vec<String>>, Option<String>, u32)> {
+fn remove_value_from_vec<T: PartialEq>(vec: &mut Vec<T>, value: &T) {
+    vec.retain(|x| x != value);
+}
+
+pub fn set_metadata(
+    p: &PathBuf,
+    title: String,
+    artists: Vec<String>,
+    album: String,
+) -> Option<(String, Option<Vec<String>>, Option<String>, u32)> {
     let tagged_file = Probe::open(p).unwrap().read().unwrap();
     let duration = tagged_file.properties().duration().as_secs() as u32;
 
@@ -118,15 +128,52 @@ pub fn set_metadata(p: &PathBuf, title: String, artists: Vec<String>, album: Str
         let title = tag.title().unwrap().as_ref().to_string();
         let album = match tag.album() {
             Some(x) => Some(x.as_ref().to_string()),
-            None => None
+            None => None,
         };
         let artist = match tag.artist() {
             Some(x) => Some(vec![x.as_ref().to_string()]),
-            None => None
+            None => None,
         };
         Some((title, artist, album, duration))
     } else {
         None
+    }
+}
+
+pub enum UserInput {
+    Quit,
+    DoNothing,
+    FocusLower,
+    FocusUpper,
+    FocusLeft,
+    FocusRight,
+    SelectLower,
+    SelectUpper,
+}
+
+pub fn get_input_key() -> UserInput {
+    if crossterm::event::poll(std::time::Duration::from_millis(250)).unwrap() {
+        // If a key event occurs, handle it
+        if let crossterm::event::Event::Key(key) = crossterm::event::read().unwrap() {
+            if key.kind == crossterm::event::KeyEventKind::Press {
+                match (key.code, key.modifiers) {
+                    (KeyCode::Char('h'), KeyModifiers::CONTROL) => UserInput::FocusLeft,
+                    (KeyCode::Char('j'), KeyModifiers::CONTROL) => UserInput::FocusLower,
+                    (KeyCode::Char('k'), KeyModifiers::CONTROL) => UserInput::FocusUpper,
+                    (KeyCode::Char('l'), KeyModifiers::CONTROL) => UserInput::FocusRight,
+                    (KeyCode::Char('q'), _) => UserInput::Quit,
+                    (KeyCode::Char('j'), _) => UserInput::SelectLower,
+                    (KeyCode::Char('k'), _) => UserInput::SelectUpper,
+                    _ => UserInput::DoNothing,
+                }
+            } else {
+                UserInput::DoNothing
+            }
+        } else {
+            UserInput::DoNothing
+        }
+    } else {
+        UserInput::DoNothing
     }
 }
 

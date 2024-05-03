@@ -81,7 +81,7 @@ pub fn prev_track(app_state: &mut AppState) {
     play_track(app_state);
 }
 
-pub async fn player_handler(app_state: Arc<Mutex<AppState>>, sleep_millis: u64) {
+pub async fn player_handler<'a>(app_state: Arc<Mutex<AppState<'a>>>, sleep_millis: u64) {
     let ipc_fp = get_ipc_path();
     let mut prev_file_contents = String::new();
     loop {

@@ -1,6 +1,7 @@
 # Created by https://www.toptal.com/developers/gitignore/api/macos,osx,vim,rust,rust-analyzer,windows,linux,python
 # Edit at https://www.toptal.com/developers/gitignore?templates=macos,osx,vim,rust,rust-analyzer,windows,linux,python
 cleanup.sh
+output.log
 
 ### Linux ###
 *~

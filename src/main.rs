@@ -6,11 +6,13 @@ mod spotdl;
 mod state;
 mod track_queue;
 mod utils;
+mod tui;
 
 use db::TrackDB;
 use mpv::{initialize_player, next_track, play_track, player_handler, wait_for_player};
 use spotdl::{download_track, init_spotify_client, search_tracks};
 use state::AppState;
+use tui::run;
 use std::{
     fs::create_dir_all,
     path::PathBuf,
@@ -36,34 +38,21 @@ const PREV_SAME_TRACK_TIMEOUT_S: u64 = 3;
 
 #[tokio::main]
 async fn main() {
-    init_functions();
+    // init_functions();
 
-    let mut spotify = init_spotify_client();
+    // let mut spotify = init_spotify_client();
     let mut app_state = Arc::new(Mutex::new(AppState::default()));
-    let player_update_state_arc = Arc::clone(&app_state);
-    let mut curr_app_state = app_state.lock().unwrap();
+    // let player_update_state_arc = Arc::clone(&app_state);
+    // let mut curr_app_state = app_state.lock().unwrap();
+    run(Arc::clone(&app_state)).await.unwrap();
 
-    let results = search_tracks(String::from("visit to hida"), 5, &mut spotify).await;
-    download_track(&results[0]);
-    let results = search_tracks(String::from("dream lantern"), 5, &mut spotify).await;
-    download_track(&results[0]);
-    let results = search_tracks(String::from("Gurenge"), 5, &mut spotify).await;
-    download_track(&results[0]);
-    curr_app_state.track_db.add_all_tracks(Some("playlist1".to_string()));
+    // let results = search_tracks(String::from("visit to hida"), 5, &mut spotify).await;
+    // download_track(&results[0]);
+    // let results = search_tracks(String::from("dream lantern"), 5, &mut spotify).await;
+    // download_track(&results[0]);
+    // curr_app_state.track_db.add_all_tracks(Some("playlist1".to_string()));
 
-    curr_app_state.track_db.change_playlist(1, "playlist2".to_string());
-    curr_app_state.track_db.change_title(1, "lmao wtf".to_string());
-    curr_app_state.track_db.change_artists(1, Some(vec!["RADWIMPS".to_string(), "LiSA".to_string()]));
-    
-    let results = search_tracks(String::from("sparkle"), 5, &mut spotify).await;
-    download_track(&results[0]);
-    curr_app_state.track_db.add_all_tracks(None);
-
-    curr_app_state.track_db.remove_playlist("playlist1".to_string());
-
-    // curr_app_state.track_queue.add_to_reg_queue(1);
-    // curr_app_state.track_queue.add_to_reg_queue(2);
-    // curr_app_state.track_queue.play_next(3);
+    // curr_app_state.add_playlist_to_queue("playlist1".to_string());
 
     // initialize_player(&mut curr_app_state);
     // drop(curr_app_state);

@@ -6,7 +6,6 @@ use rspotify::{
     ClientCredsSpotify, Credentials,
 };
 
-use reqwest;
 use std::fs::File;
 
 use crate::utils::{get_music_dir, get_newtracks_dir};
