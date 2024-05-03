@@ -16,12 +16,30 @@ use crate::{
     mpv::{initialize_player, play_track},
     state::{AppState, FocusedWindow},
     track_queue::TrackType,
-    utils::{get_input_key, wrap_string, UserInput},
+    utils::{get_input_key, get_progress_display_str, wrap_string, UserInput},
     UI_SLEEP_DURATION,
 };
 
 const UNSELECTED_COLOR: Color = Color::White;
 const SELECT_COLOR: Color = Color::Green;
+
+const NORMAL_ROW_COLOR: Color = tailwind::SLATE.c900;
+const GAUGE_BG_COLOR: Color = tailwind::BLUE.c900;
+const ALT_ROW_COLOR: Color = tailwind::SLATE.c950;
+
+// inner_layout split
+const LEFT_SIDEBAR_SIZE: u16 = 20;
+const RIGHT_TRACKLIST_SIZE: u16 = 80;
+
+// left sidebar split
+const FILTER_FILTER_OPTIONS_SIZE: u16 = 11;
+const FILTER_OPTIONS_SIZE: u16 = 39;
+const CURR_TRACK_INFO_SIZE: u16 = 50;
+
+// curr track info split
+const ALBUM_COVER_SIZE: u16 = 63;
+const GAUGE_SIZE: u16 = 10;
+const TEXT_SIZE: u16 = 100 - (ALBUM_COVER_SIZE + GAUGE_SIZE);
 
 pub async fn run<'a>(app_state: Arc<Mutex<AppState<'a>>>) -> Result<()> {
     startup().unwrap();
@@ -259,59 +277,29 @@ fn update(app_state: &mut AppState) {
             }
         }
 
-        track_list_vec.push(
-            Row::new(curr_row)
-                .height(1)
-                .style(row_style),
-        );
+        track_list_vec.push(Row::new(curr_row).height(1).style(row_style));
     }
     app_state.display_track_list.1 = track_list_vec;
     app_state.display_track_list.2 = t_id_vec;
 }
 
-fn ui(app_state: &mut AppState, frame: &mut Frame) {
-    let main_layout = Layout::new(
-        Direction::Vertical,
-        [
-            Constraint::Length(1),
-            Constraint::Min(0),
-            Constraint::Length(1),
-        ],
-    )
-    .split(frame.size());
-
-    // top and bottom panels
+fn render_header_footer(frame: &mut Frame, header_space: Rect, footer_space: Rect) {
     frame.render_widget(
         Block::new().borders(Borders::TOP).title(format!(
             " {} - v{} ",
             std::env!("CARGO_PKG_NAME"),
             std::env!("CARGO_PKG_VERSION"),
         )),
-        main_layout[0],
+        header_space,
     );
 
     frame.render_widget(
         Block::new().borders(Borders::TOP).title("keybinds go here"),
-        main_layout[2],
+        footer_space,
     );
+}
 
-    // left sidebar
-    let inner_layout = Layout::new(
-        Direction::Horizontal,
-        [Constraint::Percentage(20), Constraint::Percentage(80)],
-    )
-    .split(main_layout[1]);
-
-    let filter_block = Layout::new(
-        Direction::Vertical,
-        [
-            Constraint::Percentage(20),
-            Constraint::Percentage(40),
-            Constraint::Percentage(40),
-        ],
-    )
-    .split(inner_layout[0]);
-
+fn render_filter_filter_options(frame: &mut Frame, app_state: &mut AppState, space: Rect) {
     let list = List::new(app_state.filter_filter_options.1)
         .block(
             Block::default()
@@ -325,12 +313,10 @@ fn ui(app_state: &mut AppState, frame: &mut Frame) {
         .highlight_style(Style::new().fg(SELECT_COLOR))
         .repeat_highlight_symbol(true);
 
-    frame.render_stateful_widget(
-        list,
-        filter_block[0],
-        &mut app_state.filter_filter_options.0,
-    );
+    frame.render_stateful_widget(list, space, &mut app_state.filter_filter_options.0);
+}
 
+fn render_filter_options(frame: &mut Frame, app_state: &mut AppState, space: Rect) {
     let curr_selected_filter_filter =
         app_state.filter_filter_options.1[app_state.filter_filter_options.0.selected().unwrap()];
     let filter_list = List::new(app_state.filter_options.1.clone())
@@ -353,30 +339,24 @@ fn ui(app_state: &mut AppState, frame: &mut Frame) {
         .highlight_style(Style::new().fg(SELECT_COLOR))
         .repeat_highlight_symbol(true);
 
-    frame.render_stateful_widget(
-        filter_list,
-        filter_block[1],
-        &mut app_state.filter_options.0,
-    );
+    frame.render_stateful_widget(filter_list, space, &mut app_state.filter_options.0);
+}
 
-
-    let p_text = match &app_state.curr_track_info {
-        Some(t_info) => t_info.name.clone(),
-        None => "No track".to_string()
-    };
-    frame.render_widget(Paragraph::new(p_text).block(Block::new().borders(Borders::ALL)), filter_block[2]);
-
-    // main tracklist
+fn render_tracklist(frame: &mut Frame, app_state: &mut AppState, space: Rect) {
     let widths = [
+        // id + name + padding
         Constraint::Percentage(3),
-        Constraint::Percentage(37),
+        Constraint::Percentage(35),
         Constraint::Percentage(2),
-        Constraint::Percentage(25),
+        // artist + padding
+        Constraint::Percentage(23),
         Constraint::Percentage(2),
-        Constraint::Percentage(17),
+        // album + padding
+        Constraint::Percentage(16),
         Constraint::Percentage(2),
+        // playlist + duration
+        Constraint::Percentage(10),
         Constraint::Percentage(7),
-        Constraint::Percentage(5),
     ];
 
     let mut curr_track_list_name = match app_state
@@ -387,6 +367,9 @@ fn ui(app_state: &mut AppState, frame: &mut Frame) {
         Some(x) => x.clone(),
         None => "".to_string(),
     };
+
+    let curr_selected_filter_filter =
+        app_state.filter_filter_options.1[app_state.filter_filter_options.0.selected().unwrap()];
 
     if let "All" = curr_selected_filter_filter {
         curr_track_list_name = "All Tracks".to_string();
@@ -421,9 +404,168 @@ fn ui(app_state: &mut AppState, frame: &mut Frame) {
         .highlight_spacing(HighlightSpacing::Always)
         .highlight_style(Style::new().bg(tailwind::BLUE.c400).fg(Color::Black));
 
-    frame.render_stateful_widget(
-        track_table,
-        inner_layout[1],
-        &mut app_state.display_track_list.0,
+    frame.render_stateful_widget(track_table, space, &mut app_state.display_track_list.0);
+}
+
+fn render_left_sidebar(frame: &mut Frame, app_state: &mut AppState, space: Rect) {
+    let left_sidebar_block = Layout::new(
+        Direction::Vertical,
+        [
+            Constraint::Percentage(FILTER_FILTER_OPTIONS_SIZE),
+            Constraint::Percentage(FILTER_OPTIONS_SIZE),
+            Constraint::Percentage(CURR_TRACK_INFO_SIZE),
+        ],
+    )
+    .split(space);
+
+    render_filter_filter_options(frame, app_state, left_sidebar_block[0]);
+    render_filter_options(frame, app_state, left_sidebar_block[1]);
+    render_curr_track_info(frame, app_state, left_sidebar_block[2]);
+}
+
+fn render_album_cover(frame: &mut Frame, app_state: &mut AppState, space: Rect) {}
+
+fn render_progress_gauge(frame: &mut Frame, app_state: &mut AppState, space: Rect) {
+    let secs_played = app_state.track_clock.elapsed().as_secs_f64();
+    let total_secs = match &app_state.curr_track_info {
+        Some(t_info) => t_info.duration as f64,
+        None => 0.0,
+    };
+
+    let percent = if total_secs == 0.0 {
+        0.0
+    } else {
+        secs_played / total_secs
+    }
+    .clamp(0.0, 1.0);
+
+    let d_str = get_progress_display_str(secs_played, total_secs);
+    let gauge = Gauge::default()
+        .ratio(percent)
+        .label(d_str)
+        .gauge_style(Style::new().bg(GAUGE_BG_COLOR))
+        .use_unicode(true)
+        .block(Block::new().padding(Padding {
+            left: 2,
+            right: 2,
+            top: 1,
+            bottom: 1,
+        }));
+
+    frame.render_widget(gauge, space);
+}
+
+fn render_curr_track_text(frame: &mut Frame, app_state: &mut AppState, space: Rect) {
+    let text_split = Layout::new(
+        Direction::Vertical,
+        [
+            Constraint::Percentage(33),
+            Constraint::Percentage(33),
+            Constraint::Percentage(33),
+        ],
+    )
+    .split(space);
+
+    let track_name = match &app_state.curr_track_info {
+        Some(t_info) => t_info.name.clone(),
+        None => "None".to_string(),
+    };
+
+    frame.render_widget(
+        Paragraph::new(track_name).block(Block::new().padding(Padding {
+            left: 4,
+            right: 4,
+            top: 0,
+            bottom: 0,
+        }))
+        .centered()
+        .alignment(Alignment::Center),
+        text_split[0],
     );
+
+    let track_artists = match &app_state.curr_track_info {
+        Some(t_info) => match &t_info.artists {
+            Some(ar) => ar.join(", "),
+            None => "None".to_string(),
+        },
+        None => "None".to_string(),
+    };
+
+    frame.render_widget(
+        Paragraph::new(track_artists).block(Block::new().padding(Padding {
+            left: 4,
+            right: 4,
+            top: 0,
+            bottom: 0,
+        }))
+        .centered()
+        .alignment(Alignment::Center),
+        text_split[1],
+    );
+
+    let track_album = match &app_state.curr_track_info {
+        Some(t_info) => match &t_info.album {
+            Some(al) => al.clone(),
+            None => "None".to_string(),
+        },
+        None => "None".to_string(),
+    };
+
+    frame.render_widget(
+        Paragraph::new(track_album).block(Block::new().padding(Padding {
+            left: 4,
+            right: 4,
+            top: 0,
+            bottom: 0,
+        }))
+        .centered()
+        .alignment(Alignment::Center),
+        text_split[2],
+    );
+}
+
+fn render_curr_track_info(frame: &mut Frame, app_state: &mut AppState, space: Rect) {
+    let curr_track_block = Layout::new(
+        Direction::Vertical,
+        [
+            Constraint::Percentage(ALBUM_COVER_SIZE),
+            Constraint::Percentage(GAUGE_SIZE),
+            Constraint::Percentage(TEXT_SIZE),
+            Constraint::Percentage(2)
+        ],
+    )
+    .split(space);
+
+    frame.render_widget(Block::new().borders(Borders::ALL), space);
+
+    render_album_cover(frame, app_state, curr_track_block[0]);
+    render_progress_gauge(frame, app_state, curr_track_block[1]);
+    render_curr_track_text(frame, app_state, curr_track_block[2]);
+}
+
+fn ui(app_state: &mut AppState, frame: &mut Frame) {
+    // header and footer split
+    let main_layout = Layout::new(
+        Direction::Vertical,
+        [
+            Constraint::Length(1),
+            Constraint::Min(0),
+            Constraint::Length(1),
+        ],
+    )
+    .split(frame.size());
+
+    // inner layout split
+    let inner_layout = Layout::new(
+        Direction::Horizontal,
+        [
+            Constraint::Percentage(LEFT_SIDEBAR_SIZE),
+            Constraint::Percentage(RIGHT_TRACKLIST_SIZE),
+        ],
+    )
+    .split(main_layout[1]);
+
+    render_header_footer(frame, main_layout[0], main_layout[2]);
+    render_tracklist(frame, app_state, inner_layout[1]);
+    render_left_sidebar(frame, app_state, inner_layout[0]);
 }

@@ -91,6 +91,13 @@ pub fn check_spotdl_installed() {
     exit(1);
 }
 
+pub fn get_progress_display_str(secs_played: f64, total_secs: f64) -> String {
+    let (s1, s2) = (secs_played as u32, total_secs as u32);
+    let (m1, m2) = (s1 / 60, s2 / 60);
+    let (ss1, ss2) = (s1 - m1 * 60, s2 - m2 * 60);
+    format!("{}:{:0>2}/{}:{:0>2}", m1, ss1, m2, ss2)
+}
+
 pub fn get_metadata(p: &PathBuf) -> Option<(String, Option<Vec<String>>, Option<String>, u32)> {
     let tagged_file = Probe::open(p).unwrap().read().unwrap();
     let duration = tagged_file.properties().duration().as_secs() as u32;
