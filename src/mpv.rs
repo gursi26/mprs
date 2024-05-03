@@ -54,6 +54,11 @@ pub fn play_track(app_state: &mut AppState) {
         child.kill().unwrap();
     }
 
+    app_state.curr_track_info = match app_state.get_curr_track_info() {
+        Some(t_info_ref) => Some(t_info_ref.clone()),
+        None => None
+    };
+
     app_state.mpv_child = Some(
         Command::new("mpv")
             .arg(track_path.to_str().unwrap())

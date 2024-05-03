@@ -11,6 +11,7 @@ use stopwatch::Stopwatch;
 
 use crate::db::{TrackDB, TrackInfo};
 use crate::track_queue::TrackQueue;
+use crate::track_queue::TrackType;
 
 pub enum FocusedWindow {
     FilterFilterOptions,
@@ -31,7 +32,7 @@ pub struct AppState<'a> {
     pub filter_filter_options: (ListState, [&'a str; 4]),
     pub filter_options: (ListState, Vec<String>),
     pub display_track_list: (TableState, Vec<Row<'a>>, Vec<u32>),
-    pub curr_track_info: Option<&'a TrackInfo>,
+    pub curr_track_info: Option<TrackInfo>,
     pub focused_window: FocusedWindow, // stateful attributes
 }
 
@@ -46,17 +47,19 @@ impl<'a> AppState<'a> {
         }
     }
 
-    pub fn next_track(&'a mut self) {
-        self.track_queue.next_track();
-        let t_id = match self.track_queue.get_curr_track() {
-            Some(id) => id,
-            None => {
-                self.curr_track_info = None;
-                return;
-            }
-        };
-        let t_info = self.track_db.trackmap.get(&t_id).unwrap();
-        self.curr_track_info = Some(t_info);
+    pub fn get_curr_track_id(&self) -> Option<u32> {
+        match self.track_queue.curr_track {
+            TrackType::RegQueueTrack(id) => Some(id),
+            TrackType::ExQueueTrack(id) => Some(id),
+            TrackType::None => None,
+        }
+    }
+
+    pub fn get_curr_track_info(&self) -> Option<&TrackInfo> {
+        match self.get_curr_track_id() {
+            Some(id) => Some(self.track_db.trackmap.get(&id).unwrap()),
+            None => None
+        }
     }
 
     pub fn add_playlist_to_queue(&mut self, playlist_name: String) {

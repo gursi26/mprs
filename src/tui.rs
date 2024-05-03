@@ -5,11 +5,19 @@ use crossterm::{
 };
 use ratatui::prelude::{CrosstermBackend, Frame, Terminal};
 use ratatui::{prelude::*, widgets::*};
-use std::{sync::{Arc, Mutex}, thread::sleep, time::Duration};
+use std::{
+    sync::{Arc, Mutex},
+    thread::sleep,
+    time::Duration,
+};
 use style::palette::tailwind;
 
 use crate::{
-    mpv::{initialize_player, play_track}, state::{AppState, FocusedWindow}, utils::{get_input_key, wrap_string, UserInput}, UI_SLEEP_DURATION
+    mpv::{initialize_player, play_track},
+    state::{AppState, FocusedWindow},
+    track_queue::TrackType,
+    utils::{get_input_key, wrap_string, UserInput},
+    UI_SLEEP_DURATION,
 };
 
 const UNSELECTED_COLOR: Color = Color::White;
@@ -129,19 +137,26 @@ fn handle_user_input(app_state: &mut AppState) {
         },
         UserInput::Select => match app_state.focused_window {
             FocusedWindow::TrackList => {
-                let selected_t_id = app_state.display_track_list.2.get(app_state.display_track_list.0.selected().unwrap()).unwrap();
-                app_state.track_queue.add_to_reg_queue(selected_t_id.clone());
+                app_state.track_queue.empty_queue();
+                let selected_t_id = app_state
+                    .display_track_list
+                    .2
+                    .get(app_state.display_track_list.0.selected().unwrap())
+                    .unwrap();
+                app_state
+                    .track_queue
+                    .add_to_reg_queue(selected_t_id.clone());
                 for t_id in app_state.display_track_list.2.iter() {
                     if t_id != selected_t_id {
                         app_state.track_queue.add_to_reg_queue(t_id.clone());
                     }
                 }
                 initialize_player(app_state)
-            },
+            }
             _ => {
                 app_state.focused_window = FocusedWindow::TrackList;
-            },
-        }
+            }
+        },
         _ => {}
     }
 }
@@ -212,6 +227,8 @@ fn update(app_state: &mut AppState) {
         let curr_t_info = app_state.track_db.trackmap.get(t_id).unwrap();
         let mut curr_row = Vec::new();
 
+        curr_row.push(format!("{}", i + 1));
+
         let mut name = curr_t_info.name.clone();
         curr_row.push(name);
 
@@ -227,13 +244,25 @@ fn update(app_state: &mut AppState) {
         let mins = d / 60;
         let duration = format!("{}:{:0>2}", mins, d - (mins * 60));
         curr_row.push(duration);
+
+        let currently_playing_t_id = app_state.get_curr_track_id();
+
+        let mut row_style = Style::new().bg(match i % 2 {
+            0 => tailwind::SLATE.c900,
+            _ => tailwind::SLATE.c950,
+        });
+
+        if let Some(id) = currently_playing_t_id {
+            if id == *t_id {
+                row_style = row_style.bg(Color::Green);
+                curr_row[0] = " ▶".to_string();
+            }
+        }
+
         track_list_vec.push(
             Row::new(curr_row)
                 .height(1)
-                .style(Style::new().bg(match i % 2 {
-                    0 => tailwind::SLATE.c900,
-                    _ => tailwind::SLATE.c950,
-                })),
+                .style(row_style),
         );
     }
     app_state.display_track_list.1 = track_list_vec;
@@ -330,11 +359,17 @@ fn ui(app_state: &mut AppState, frame: &mut Frame) {
         &mut app_state.filter_options.0,
     );
 
-    frame.render_widget(Block::new().borders(Borders::ALL), filter_block[2]);
+
+    let p_text = match &app_state.curr_track_info {
+        Some(t_info) => t_info.name.clone(),
+        None => "No track".to_string()
+    };
+    frame.render_widget(Paragraph::new(p_text).block(Block::new().borders(Borders::ALL)), filter_block[2]);
 
     // main tracklist
     let widths = [
-        Constraint::Percentage(40),
+        Constraint::Percentage(3),
+        Constraint::Percentage(37),
         Constraint::Percentage(2),
         Constraint::Percentage(25),
         Constraint::Percentage(2),
@@ -369,11 +404,11 @@ fn ui(app_state: &mut AppState, frame: &mut Frame) {
                 .border_style(Style::new().fg(match app_state.focused_window {
                     FocusedWindow::TrackList => SELECT_COLOR,
                     _ => UNSELECTED_COLOR,
-                }))
+                })),
         )
         .header(
             Row::new(vec![
-                "Title", "", "Artist", "", "Album", "", "Playlist", "Duration",
+                "", "Title", "", "Artist", "", "Album", "", "Playlist", "Duration",
             ])
             .style(
                 Style::new()
@@ -381,7 +416,7 @@ fn ui(app_state: &mut AppState, frame: &mut Frame) {
                     .bg(tailwind::BLUE.c900)
                     .add_modifier(Modifier::BOLD),
             )
-            .height(1)
+            .height(1),
         )
         .highlight_spacing(HighlightSpacing::Always)
         .highlight_style(Style::new().bg(tailwind::BLUE.c400).fg(Color::Black));
