@@ -157,6 +157,17 @@ pub fn set_metadata(
     }
 }
 
+pub fn get_album_cover(p: &PathBuf) -> Vec<u8> {
+    let tagged_file = Probe::open(p).unwrap().read().unwrap();
+
+    if let Some(tag) = tagged_file.primary_tag() {
+        tag.pictures()[0].clone().into_data()
+    } else {
+        Vec::new()
+    }
+}
+
+
 pub enum UserInput {
     Quit,
     DoNothing,

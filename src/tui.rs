@@ -3,8 +3,10 @@ use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
+use image::codecs::png::FilterType;
 use ratatui::prelude::{CrosstermBackend, Frame, Terminal};
 use ratatui::{prelude::*, widgets::*};
+use ratatui_image::{Resize, StatefulImage};
 use std::{
     sync::{Arc, Mutex},
     thread::sleep,
@@ -16,7 +18,7 @@ use crate::{
     mpv::{initialize_player, play_track},
     state::{AppState, FocusedWindow},
     track_queue::TrackType,
-    utils::{get_input_key, get_progress_display_str, wrap_string, UserInput},
+    utils::{get_album_cover, get_input_key, get_progress_display_str, wrap_string, UserInput},
     UI_SLEEP_DURATION,
 };
 
@@ -28,8 +30,8 @@ const GAUGE_BG_COLOR: Color = tailwind::BLUE.c900;
 const ALT_ROW_COLOR: Color = tailwind::SLATE.c950;
 
 // inner_layout split
-const LEFT_SIDEBAR_SIZE: u16 = 20;
-const RIGHT_TRACKLIST_SIZE: u16 = 80;
+const LEFT_SIDEBAR_SIZE: u16 = 22;
+const RIGHT_TRACKLIST_SIZE: u16 = 100 - LEFT_SIDEBAR_SIZE;
 
 // left sidebar split
 const FILTER_FILTER_OPTIONS_SIZE: u16 = 11;
@@ -37,8 +39,8 @@ const FILTER_OPTIONS_SIZE: u16 = 39;
 const CURR_TRACK_INFO_SIZE: u16 = 50;
 
 // curr track info split
-const ALBUM_COVER_SIZE: u16 = 63;
-const GAUGE_SIZE: u16 = 10;
+const ALBUM_COVER_SIZE: u16 = 80;
+const GAUGE_SIZE: u16 = 3;
 const TEXT_SIZE: u16 = 100 - (ALBUM_COVER_SIZE + GAUGE_SIZE);
 
 pub async fn run<'a>(app_state: Arc<Mutex<AppState<'a>>>) -> Result<()> {
@@ -423,7 +425,17 @@ fn render_left_sidebar(frame: &mut Frame, app_state: &mut AppState, space: Rect)
     render_curr_track_info(frame, app_state, left_sidebar_block[2]);
 }
 
-fn render_album_cover(frame: &mut Frame, app_state: &mut AppState, space: Rect) {}
+fn render_album_cover(frame: &mut Frame, app_state: &mut AppState, space: Rect) {
+    let img_widget = StatefulImage::new(None);
+    let img_state = match &mut app_state.curr_track_cover {
+        Some(state) => state,
+        None => return,
+    };
+
+    let cover_block = Block::new().borders(Borders::ALL).inner(space);
+
+    frame.render_stateful_widget(img_widget, cover_block, img_state)
+}
 
 fn render_progress_gauge(frame: &mut Frame, app_state: &mut AppState, space: Rect) {
     let secs_played = app_state.track_clock.elapsed().as_secs_f64();
@@ -448,40 +460,18 @@ fn render_progress_gauge(frame: &mut Frame, app_state: &mut AppState, space: Rec
         .block(Block::new().padding(Padding {
             left: 2,
             right: 2,
-            top: 1,
-            bottom: 1,
+            top: 0,
+            bottom: 0,
         }));
 
     frame.render_widget(gauge, space);
 }
 
 fn render_curr_track_text(frame: &mut Frame, app_state: &mut AppState, space: Rect) {
-    let text_split = Layout::new(
-        Direction::Vertical,
-        [
-            Constraint::Percentage(33),
-            Constraint::Percentage(33),
-            Constraint::Percentage(33),
-        ],
-    )
-    .split(space);
-
     let track_name = match &app_state.curr_track_info {
         Some(t_info) => t_info.name.clone(),
         None => "None".to_string(),
     };
-
-    frame.render_widget(
-        Paragraph::new(track_name).block(Block::new().padding(Padding {
-            left: 4,
-            right: 4,
-            top: 0,
-            bottom: 0,
-        }))
-        .centered()
-        .alignment(Alignment::Center),
-        text_split[0],
-    );
 
     let track_artists = match &app_state.curr_track_info {
         Some(t_info) => match &t_info.artists {
@@ -490,18 +480,6 @@ fn render_curr_track_text(frame: &mut Frame, app_state: &mut AppState, space: Re
         },
         None => "None".to_string(),
     };
-
-    frame.render_widget(
-        Paragraph::new(track_artists).block(Block::new().padding(Padding {
-            left: 4,
-            right: 4,
-            top: 0,
-            bottom: 0,
-        }))
-        .centered()
-        .alignment(Alignment::Center),
-        text_split[1],
-    );
 
     let track_album = match &app_state.curr_track_info {
         Some(t_info) => match &t_info.album {
@@ -512,15 +490,18 @@ fn render_curr_track_text(frame: &mut Frame, app_state: &mut AppState, space: Re
     };
 
     frame.render_widget(
-        Paragraph::new(track_album).block(Block::new().padding(Padding {
+        Paragraph::new(format!(
+            "{}\n{}\n{}",
+            track_name, track_artists, track_album
+        ))
+        .centered()
+        .block(Block::new().padding(Padding {
             left: 4,
             right: 4,
             top: 0,
             bottom: 0,
-        }))
-        .centered()
-        .alignment(Alignment::Center),
-        text_split[2],
+        })),
+        space,
     );
 }
 
@@ -531,7 +512,7 @@ fn render_curr_track_info(frame: &mut Frame, app_state: &mut AppState, space: Re
             Constraint::Percentage(ALBUM_COVER_SIZE),
             Constraint::Percentage(GAUGE_SIZE),
             Constraint::Percentage(TEXT_SIZE),
-            Constraint::Percentage(2)
+            Constraint::Percentage(2),
         ],
     )
     .split(space);

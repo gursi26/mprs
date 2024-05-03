@@ -59,6 +59,8 @@ pub fn play_track(app_state: &mut AppState) {
         None => None
     };
 
+    app_state.update_curr_album_cover();
+
     app_state.mpv_child = Some(
         Command::new("mpv")
             .arg(track_path.to_str().unwrap())

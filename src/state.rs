@@ -1,6 +1,8 @@
 use ratatui::widgets::ListState;
 use ratatui::widgets::Row;
 use ratatui::widgets::TableState;
+use ratatui_image::picker::Picker;
+use ratatui_image::protocol::StatefulProtocol;
 use serde::Deserialize;
 use serde::Serialize;
 use std::path::PathBuf;
@@ -12,6 +14,7 @@ use stopwatch::Stopwatch;
 use crate::db::{TrackDB, TrackInfo};
 use crate::track_queue::TrackQueue;
 use crate::track_queue::TrackType;
+use crate::utils::get_album_cover;
 
 pub enum FocusedWindow {
     FilterFilterOptions,
@@ -33,6 +36,7 @@ pub struct AppState<'a> {
     pub filter_options: (ListState, Vec<String>),
     pub display_track_list: (TableState, Vec<Row<'a>>, Vec<u32>),
     pub curr_track_info: Option<TrackInfo>,
+    pub curr_track_cover: Option<Box<dyn StatefulProtocol>>,
     pub focused_window: FocusedWindow, // stateful attributes
 }
 
@@ -60,6 +64,19 @@ impl<'a> AppState<'a> {
             Some(id) => Some(self.track_db.trackmap.get(&id).unwrap()),
             None => None
         }
+    }
+
+    pub fn update_curr_album_cover(&mut self) {
+        let img_bytes = get_album_cover(&match &self.curr_track_info {
+            Some(c) => c.get_file_path(),
+            None => return
+        });
+        let img = image::load_from_memory(&img_bytes).unwrap();
+
+        let mut picker = Picker::from_termios().unwrap();
+        picker.guess_protocol();
+
+        self.curr_track_cover = Some(picker.new_resize_protocol(img));
     }
 
     pub fn add_playlist_to_queue(&mut self, playlist_name: String) {
@@ -95,6 +112,7 @@ impl<'a> Default for AppState<'a> {
             filter_options: (ListState::default().with_selected(Some(0)), Vec::new()),
             display_track_list: (TableState::default().with_selected(Some(0)), Vec::new(), Vec::new()),
             curr_track_info: None,
+            curr_track_cover: None,
             focused_window: FocusedWindow::FilterFilterOptions,
         }
     }
