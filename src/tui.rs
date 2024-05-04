@@ -19,7 +19,7 @@ use crate::{
     state::{AppState, FocusedWindow},
     track_queue::TrackType,
     utils::{get_album_cover, get_input_key, get_progress_display_str, wrap_string, UserInput},
-    UI_SLEEP_DURATION,
+    MULTIPLE_JUMP_DISTANCE, UI_SLEEP_DURATION,
 };
 
 const UNSELECTED_COLOR: Color = Color::White;
@@ -177,20 +177,103 @@ fn handle_user_input(app_state: &mut AppState) {
                 app_state.focused_window = FocusedWindow::TrackList;
             }
         },
+        UserInput::JumpToBottom => match app_state.focused_window {
+            FocusedWindow::TrackList => {
+                let s = app_state.display_track_list.0.selected_mut();
+                *s = Some(app_state.display_track_list.1.len() - 1);
+            }
+            FocusedWindow::FilterFilterOptions => {
+                let s = app_state.filter_filter_options.0.selected_mut();
+                *s = Some(app_state.filter_filter_options.1.len() - 1);
+            }
+            FocusedWindow::FilterOptions => {
+                let s = app_state.filter_options.0.selected_mut();
+                *s = Some(app_state.filter_options.1.len() - 1);
+            }
+        },
+        UserInput::JumpToTop => match app_state.focused_window {
+            FocusedWindow::TrackList => {
+                let s = app_state.display_track_list.0.selected_mut();
+                *s = Some(0);
+            }
+            FocusedWindow::FilterFilterOptions => {
+                let s = app_state.filter_filter_options.0.selected_mut();
+                *s = Some(0);
+            }
+            FocusedWindow::FilterOptions => {
+                let s = app_state.filter_options.0.selected_mut();
+                *s = Some(0);
+            }
+        },
+        UserInput::JumpMultipleUp => match app_state.focused_window {
+            FocusedWindow::TrackList => {
+                let s = app_state.display_track_list.0.selected_mut();
+                match s.clone() {
+                    Some(x) => *s = Some((x as i32 - MULTIPLE_JUMP_DISTANCE).max(0) as usize),
+                    None => {}
+                }
+            }
+            FocusedWindow::FilterFilterOptions => {
+                let s = app_state.filter_filter_options.0.selected_mut();
+                match s.clone() {
+                    Some(x) => *s = Some((x as i32 - MULTIPLE_JUMP_DISTANCE).max(0) as usize),
+                    None => {}
+                }
+            }
+            FocusedWindow::FilterOptions => {
+                let s = app_state.filter_options.0.selected_mut();
+                match s.clone() {
+                    Some(x) => *s = Some((x as i32 - MULTIPLE_JUMP_DISTANCE).max(0) as usize),
+                    None => {}
+                }
+            }
+        },
+        UserInput::JumpMultipleDown => match app_state.focused_window {
+            FocusedWindow::TrackList => {
+                let s = app_state.display_track_list.0.selected_mut();
+                match s.clone() {
+                    Some(x) => {
+                        *s = Some(
+                            (x as i32 + MULTIPLE_JUMP_DISTANCE)
+                                .min(app_state.display_track_list.1.len() as i32 - 1)
+                                as usize,
+                        )
+                    }
+                    None => {}
+                }
+            }
+            FocusedWindow::FilterFilterOptions => {
+                let s = app_state.filter_filter_options.0.selected_mut();
+                match s.clone() {
+                    Some(x) => {
+                        *s = Some(
+                            (x as i32 + MULTIPLE_JUMP_DISTANCE)
+                                .min(app_state.filter_filter_options.1.len() as i32 - 1)
+                                as usize,
+                        )
+                    }
+                    None => {}
+                }
+            }
+            FocusedWindow::FilterOptions => {
+                let s = app_state.filter_options.0.selected_mut();
+                match s.clone() {
+                    Some(x) => {
+                        *s = Some(
+                            (x as i32 + MULTIPLE_JUMP_DISTANCE)
+                                .min(app_state.filter_options.1.len() as i32 - 1)
+                                as usize,
+                        )
+                    }
+                    None => {}
+                }
+            }
+        },
         _ => {}
     }
 }
 
-// TODO: Implement separate keybind strings based on which screen is focused and display below
-// TODO: Split into sub functions
-// TODO: Implement prev_state store so that updates only happen when something is changed
-// TODO: Implement table view for tracks and scrolling
-// TODO: <Enter> - Play track, a - add track to curr playlist (only available in track pane when on
-// a playlist), a in playlist pane - new playlist with optional spotify link paste to import from
-// spotify, l - add track to queue, e - edit currently focused track
-fn update(app_state: &mut AppState) {
-    handle_user_input(app_state);
-
+fn update_filter_options(app_state: &mut AppState) {
     let selected_filter_filter =
         app_state.filter_filter_options.1[app_state.filter_filter_options.0.selected().unwrap()];
     if selected_filter_filter != "All" {
@@ -215,6 +298,11 @@ fn update(app_state: &mut AppState) {
     } else {
         app_state.filter_options.1 = Vec::new();
     }
+}
+
+fn update_tracklist(app_state: &mut AppState) {
+    let selected_filter_filter =
+        app_state.filter_filter_options.1[app_state.filter_filter_options.0.selected().unwrap()];
 
     let selected_tracks = if selected_filter_filter == "All" {
         app_state
@@ -283,6 +371,36 @@ fn update(app_state: &mut AppState) {
     }
     app_state.display_track_list.1 = track_list_vec;
     app_state.display_track_list.2 = t_id_vec;
+}
+
+// TODO: Implement separate keybind strings based on which screen is focused and display below
+// TODO: <Enter> - Play track, a - add track to curr playlist (only available in track pane when on
+// a playlist), a in playlist pane - new playlist with optional spotify link paste to import from
+// spotify, l - add track to queue, e - edit currently focused track
+fn update(app_state: &mut AppState) {
+    handle_user_input(app_state);
+
+    let (c1, c2) = (
+        app_state.filter_filter_options.0.selected().unwrap(),
+        app_state.filter_options.0.selected().unwrap(),
+    );
+    match (
+        &mut app_state.prev_filter_filter_selection,
+        &mut app_state.prev_filter_selection,
+    ) {
+        (Some(s1), Some(s2)) => {
+            if c1 != *s1 || c2 != *s2 {
+                update_filter_options(app_state);
+                update_tracklist(app_state);
+            }
+        }
+        (_, _) => {
+            update_filter_options(app_state);
+            update_tracklist(app_state);
+        }
+    }
+    app_state.prev_filter_filter_selection = Some(c1);
+    app_state.prev_filter_selection = Some(c2);
 }
 
 fn render_header_footer(frame: &mut Frame, header_space: Rect, footer_space: Rect) {

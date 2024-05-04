@@ -218,12 +218,22 @@ impl TrackDB {
         let p = album_map.get_mut(&t_info.album.clone().unwrap_or("None".to_string())).unwrap();
         p.retain(|&x| x != t_id);
 
+        if p.len() == 0 {
+            if let Some(a) = &t_info.album.clone() {
+                album_map.remove(a);
+            }
+        }
+
         let artist_map = self.track_filter_cache.get_mut("Artists").unwrap();
         match t_info.artists.clone() {
             Some(ar) => {
                 for a in ar.iter() {
                     let p = artist_map.get_mut(a).unwrap();
                     p.retain(|&x| x != t_id);
+
+                    if p.len() == 0 {
+                        artist_map.remove(a);
+                    }
                 }
             },
             None => {

@@ -31,8 +31,10 @@ const MPV_STATUS_IPC_FILENAME: &str = ".mpv_status.txt";
 const MPV_LUASCRIPT_FILENAME: &str = "status_update.lua";
 
 const PLAYER_HANDLER_TIMEOUT_MS: u64 = 20;
-const UI_SLEEP_DURATION: u64 = 10;
+const UI_SLEEP_DURATION: u64 = 20;
 const PREV_SAME_TRACK_TIMEOUT_S: u64 = 3;
+
+const MULTIPLE_JUMP_DISTANCE: i32 = 20;
 
 // TODO: Write tui code
 // TODO: Switch to Unix domain sockets for IPC

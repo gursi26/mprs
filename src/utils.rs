@@ -178,6 +178,10 @@ pub enum UserInput {
     SelectLower,
     SelectUpper,
     Select,
+    JumpToBottom,
+    JumpToTop,
+    JumpMultipleDown,
+    JumpMultipleUp
 }
 
 pub fn get_input_key() -> UserInput {
@@ -190,7 +194,11 @@ pub fn get_input_key() -> UserInput {
                     (KeyCode::Char('j'), KeyModifiers::CONTROL) => UserInput::FocusLower,
                     (KeyCode::Char('k'), KeyModifiers::CONTROL) => UserInput::FocusUpper,
                     (KeyCode::Char('l'), KeyModifiers::CONTROL) => UserInput::FocusRight,
+                    (KeyCode::Char('d'), KeyModifiers::CONTROL) => UserInput::JumpMultipleDown,
+                    (KeyCode::Char('u'), KeyModifiers::CONTROL) => UserInput::JumpMultipleUp,
+                    (KeyCode::Char('G'), KeyModifiers::SHIFT) => UserInput::JumpToBottom,
                     (KeyCode::Char('q'), _) => UserInput::Quit,
+                    (KeyCode::Char('g'), _) => UserInput::JumpToTop,
                     (KeyCode::Char('j'), _) => UserInput::SelectLower,
                     (KeyCode::Char('k'), _) => UserInput::SelectUpper,
                     (KeyCode::Enter, _) => UserInput::Select,

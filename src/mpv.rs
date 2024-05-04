@@ -1,6 +1,5 @@
 use log::debug;
 use stopwatch::Stopwatch;
-
 use crate::track_queue::TrackQueue;
 use crate::utils::{get_ipc_path, parse_bool};
 use crate::PREV_SAME_TRACK_TIMEOUT_S;

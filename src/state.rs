@@ -37,7 +37,11 @@ pub struct AppState<'a> {
     pub display_track_list: (TableState, Vec<Row<'a>>, Vec<u32>),
     pub curr_track_info: Option<TrackInfo>,
     pub curr_track_cover: Option<Box<dyn StatefulProtocol>>,
-    pub focused_window: FocusedWindow, // stateful attributes
+    pub focused_window: FocusedWindow,
+
+    // differencing attributes
+    pub prev_filter_filter_selection: Option<usize>,
+    pub prev_filter_selection: Option<usize>,
 }
 
 impl<'a> AppState<'a> {
@@ -114,6 +118,8 @@ impl<'a> Default for AppState<'a> {
             curr_track_info: None,
             curr_track_cover: None,
             focused_window: FocusedWindow::FilterFilterOptions,
+            prev_filter_filter_selection: None,
+            prev_filter_selection: None
         }
     }
 }
