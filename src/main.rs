@@ -1,34 +1,65 @@
 #![allow(dead_code, unused_mut, unused_variables, unused_imports)]
 
-mod args;
-mod config;
+mod db;
+mod mpv;
+mod spotdl;
+mod state;
+mod track_queue;
 mod utils;
-mod ytdlp;
-mod actions;
-use crate::actions::add::mprs_add;
-use crate::actions::create::mprs_create;
-use crate::actions::remove::mprs_remove;
-use crate::actions::play::mprs_play;
-use crate::actions::list::mprs_list;
-use crate::actions::open::mprs_open;
-use crate::actions::mv_cpy::mprs_move;
-use crate::ytdlp::ytdlp_get_info_from_link;
+mod tui;
 
-use args::*;
-use clap::Parser;
-use config::{init_config, parse_config_file};
+use db::TrackDB;
+use mpv::{initialize_player, next_track, play_track, player_handler, wait_for_player};
+use spotdl::{download_track, init_spotify_client, search_tracks};
+use state::AppState;
+use tui::run;
+use std::{
+    fs::create_dir_all,
+    path::PathBuf,
+    process::{exit, Command},
+    str::FromStr,
+    sync::{Arc, Mutex},
+    thread::sleep,
+    time::Duration,
+};
+use stopwatch::Stopwatch;
+use track_queue::TrackQueue;
+use utils::init_functions;
 
-fn main() {
-    init_config();
-    let user_config = parse_config_file();
-    let args = MusicPlayerArgs::parse();
-    match args.action_type {
-        ActionType::Add(ref add_args) => mprs_add(add_args, &user_config),
-        ActionType::Remove(ref remove_args) => mprs_remove(remove_args, &user_config),
-        ActionType::Create(ref create_args) => mprs_create(create_args, &user_config),
-        ActionType::Play(ref play_args) => mprs_play(play_args, &user_config),
-        ActionType::List(ref list_args) => mprs_list(list_args, &user_config),
-        ActionType::Move(ref move_args) => mprs_move(move_args, &user_config),
-        ActionType::Open => mprs_open(&user_config),
+const MUSIC_DIR: &str = "mprs-tracks";
+const MPV_STATUS_IPC_FILENAME: &str = ".mpv_status.txt";
+const MPV_LUASCRIPT_FILENAME: &str = "status_update.lua";
+
+const PLAYER_HANDLER_TIMEOUT_MS: u64 = 20;
+const UI_SLEEP_DURATION: u64 = 20;
+const PREV_SAME_TRACK_TIMEOUT_S: u64 = 3;
+
+const MULTIPLE_JUMP_DISTANCE: i32 = 20;
+
+// TODO: Write tui code
+// TODO: Switch to Unix domain sockets for IPC
+
+#[tokio::main]
+async fn main() {
+    init_functions();
+    let mut spotify = init_spotify_client();
+    let mut app_state = Arc::new(Mutex::new(AppState::default()));
+
+    let player_update_state_arc = Arc::clone(&app_state);
+
+    let player_update_handle = tokio::task::spawn(async move {
+        player_handler(player_update_state_arc, PLAYER_HANDLER_TIMEOUT_MS).await;
+    });
+
+    run(Arc::clone(&app_state)).await.unwrap();
+    drop(player_update_handle);
+
+    let curr_rc = Arc::clone(&app_state);
+    let mut curr_app_state = curr_rc.lock().unwrap();
+
+    match &mut curr_app_state.mpv_child {
+        Some(c) => {c.kill().unwrap();},
+        None => {}
     };
+    exit(0);
 }
