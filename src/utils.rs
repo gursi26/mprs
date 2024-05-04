@@ -15,7 +15,7 @@ use lofty::tag::Accessor;
 use dirs::home_dir;
 use ratatui::layout::{Constraint, Layout};
 
-use crate::{MPV_LUASCRIPT_FILENAME, MPV_STATUS_IPC_FILENAME, MUSIC_DIR};
+use crate::{state::{AppState, FocusedWindow}, KEY_INPUT_POLL_TIMEOUT_MS, MPV_LUASCRIPT_FILENAME, MPV_STATUS_IPC_FILENAME, MUSIC_DIR};
 
 pub fn get_music_dir() -> PathBuf {
     let mut d = home_dir().unwrap();
@@ -187,10 +187,12 @@ pub enum UserInput {
     Delete,
     ConfirmYes,
     ConfirmNo,
+    ToggleShuffle,
+    AddToQueue
 }
 
 pub fn get_input_key() -> UserInput {
-    if crossterm::event::poll(std::time::Duration::from_millis(50)).unwrap() {
+    if crossterm::event::poll(std::time::Duration::from_millis(KEY_INPUT_POLL_TIMEOUT_MS)).unwrap() {
         // If a key event occurs, handle it
         if let crossterm::event::Event::Key(key) = crossterm::event::read().unwrap() {
             if key.kind == crossterm::event::KeyEventKind::Press {
@@ -202,6 +204,8 @@ pub fn get_input_key() -> UserInput {
                     (KeyCode::Char('d'), KeyModifiers::CONTROL) => UserInput::JumpMultipleDown,
                     (KeyCode::Char('u'), KeyModifiers::CONTROL) => UserInput::JumpMultipleUp,
                     (KeyCode::Char('G'), KeyModifiers::SHIFT) => UserInput::JumpToBottom,
+                    (KeyCode::Char('s'), _) => UserInput::ToggleShuffle,
+                    (KeyCode::Char('l'), _) => UserInput::AddToQueue,
                     (KeyCode::Char('y'), _) => UserInput::ConfirmYes,
                     (KeyCode::Char('n'), _) => UserInput::ConfirmNo,
                     (KeyCode::Char('q'), _) => UserInput::Quit,
@@ -256,4 +260,18 @@ pub fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
         Constraint::Percentage((100 - percent_x) / 2),
     ])
     .split(popup_layout[1])[1]
+}
+
+pub fn get_keybind_string(app_state: &AppState) -> String {
+    match app_state.focused_window {
+        FocusedWindow::TrackList => {
+            " (Enter): Play track | (l): Add to queue | (n): Play next | (s): Toggle shuffle | (d): Delete track | (j/k): Move up/down | (g/Shift-g): Jump to top/bottom | (Ctrl-u/d): Jump up/down ".to_string()
+        },
+        FocusedWindow::FilterOptions => {
+            "".to_string()
+        }
+        FocusedWindow::FilterFilterOptions => {
+            "".to_string()
+        }
+    }
 }

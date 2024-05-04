@@ -45,6 +45,8 @@ pub struct AppState<'a> {
     pub focused_window: FocusedWindow,
     pub display_deletion_window: Option<DeleteType>,
     pub confirmed: Option<bool>,
+    pub shuffle: bool,
+    pub notification: (String, Stopwatch),
 
     // differencing attributes
     pub prev_filter_filter_selection: Option<usize>,
@@ -52,6 +54,11 @@ pub struct AppState<'a> {
 }
 
 impl<'a> AppState<'a> {
+    pub fn display_notification(&mut self, message: String) {
+        self.notification.0 = message;
+        self.notification.1.start();
+    }
+
     pub fn get_curr_track_path(&self) -> Option<PathBuf> {
         let curr_track_id = self.track_queue.get_curr_track();
         if let Some(id) = curr_track_id {
@@ -117,6 +124,8 @@ impl<'a> Default for AppState<'a> {
             should_quit: false,
             display_deletion_window: None,
             confirmed: None,
+            shuffle: false,
+            notification: ("".to_string(), Stopwatch::new()),
 
             filter_filter_options: (
                 ListState::default().with_selected(Some(0)),

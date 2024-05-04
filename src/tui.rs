@@ -7,6 +7,7 @@ use image::codecs::png::FilterType;
 use ratatui::prelude::{CrosstermBackend, Frame, Terminal};
 use ratatui::{prelude::*, widgets::*};
 use ratatui_image::{Resize, StatefulImage};
+use stopwatch::Stopwatch;
 use std::{
     sync::{Arc, Mutex},
     thread::sleep,
@@ -15,14 +16,9 @@ use std::{
 use style::palette::tailwind;
 
 use crate::{
-    mpv::{initialize_player, play_track},
-    state::{AppState, DeleteType, FocusedWindow},
-    track_queue::TrackType,
-    utils::{
-        centered_rect, get_album_cover, get_input_key, get_progress_display_str, wrap_string,
-        UserInput,
-    },
-    MULTIPLE_JUMP_DISTANCE, UI_SLEEP_DURATION,
+    mpv::{initialize_player, play_track}, state::{AppState, DeleteType, FocusedWindow}, track_queue::TrackType, utils::{
+        centered_rect, get_album_cover, get_input_key, get_keybind_string, get_progress_display_str, wrap_string, UserInput
+    }, MULTIPLE_JUMP_DISTANCE, NOTIFICATION_TIMEOUT_S, UI_SLEEP_DURATION_MS
 };
 
 const UNSELECTED_COLOR: Color = Color::White;
@@ -64,7 +60,7 @@ pub async fn run<'a>(app_state: Arc<Mutex<AppState<'a>>>) -> Result<()> {
             break;
         }
         drop(curr_app_state_rc);
-        sleep(Duration::from_millis(UI_SLEEP_DURATION));
+        sleep(Duration::from_millis(UI_SLEEP_DURATION_MS));
     }
 
     shutdown().unwrap();
@@ -166,14 +162,17 @@ fn handle_user_input(app_state: &mut AppState) {
                     .2
                     .get(app_state.display_track_list.0.selected().unwrap())
                     .unwrap();
-                app_state
-                    .track_queue
-                    .add_to_reg_queue(selected_t_id.clone());
                 for t_id in app_state.display_track_list.2.iter() {
                     if t_id != selected_t_id {
                         app_state.track_queue.add_to_reg_queue(t_id.clone());
                     }
                 }
+                if app_state.shuffle {
+                    app_state.track_queue.shuffle_reg_queue();
+                }
+                app_state
+                    .track_queue
+                    .prepend_to_reg_queue(selected_t_id.clone());
                 initialize_player(app_state);
             }
             _ => {
@@ -289,10 +288,34 @@ fn handle_user_input(app_state: &mut AppState) {
             FocusedWindow::FilterFilterOptions => {}
         },
         UserInput::ConfirmYes => {
-            app_state.confirmed = Some(true);
+            if let Some(_) = app_state.display_deletion_window {
+                app_state.confirmed = Some(true);
+            } 
         },
         UserInput::ConfirmNo => {
-            app_state.confirmed = Some(false);
+            if let Some(_) = app_state.display_deletion_window {
+                app_state.confirmed = Some(false);
+            } else {
+                if let FocusedWindow::TrackList = app_state.focused_window {
+                    let curr_track_id = app_state.display_track_list.2.get(app_state.display_track_list.0.selected().unwrap()).unwrap();
+                    let track_name = app_state.track_db.trackmap.get(curr_track_id).unwrap().name.clone();
+                    app_state.track_queue.play_next(*curr_track_id);
+                    app_state.display_notification(format!(" Playing track \'{}\' next ", track_name));
+                }
+            }
+        },
+        UserInput::ToggleShuffle => {
+            app_state.shuffle = !app_state.shuffle;
+            app_state.track_queue.shuffle_reg_queue();
+        },
+        UserInput::AddToQueue => match app_state.focused_window {
+            FocusedWindow::TrackList => {
+                let curr_track_id = app_state.display_track_list.2.get(app_state.display_track_list.0.selected().unwrap()).unwrap();
+                let track_name = app_state.track_db.trackmap.get(curr_track_id).unwrap().name.clone();
+                app_state.track_queue.add_to_queue(*curr_track_id);
+                app_state.display_notification(format!(" Added track \'{}\' to queue ", track_name));
+            },
+            _ => {}
         }
         _ => {}
     }
@@ -434,7 +457,7 @@ pub fn update(app_state: &mut AppState, force_refresh: bool) {
     app_state.prev_filter_selection = Some(c2);
 }
 
-fn render_header_footer(frame: &mut Frame, header_space: Rect, footer_space: Rect) {
+fn render_header_footer(app_state: &mut AppState, frame: &mut Frame, header_space: Rect, footer_space: Rect) {
     frame.render_widget(
         Block::new().borders(Borders::TOP).title(format!(
             " {} - v{} ",
@@ -445,7 +468,11 @@ fn render_header_footer(frame: &mut Frame, header_space: Rect, footer_space: Rec
     );
 
     frame.render_widget(
-        Block::new().borders(Borders::TOP).title("keybinds go here"),
+        Block::new().borders(Borders::TOP).title(get_keybind_string(app_state)),
+        footer_space,
+    );
+    frame.render_widget(
+        Block::new().title(format!(" Shuffle: {} ", app_state.shuffle)).title_alignment(Alignment::Right),
         footer_space,
     );
 }
@@ -722,6 +749,21 @@ fn render_confirmation_window(app_state: &mut AppState, frame: &mut Frame) {
     }
 }
 
+fn render_notification(app_state: &mut AppState, frame: &mut Frame, space: Rect) {
+    frame.render_widget(
+        Block::new().title(app_state.notification.0.clone()).title_alignment(Alignment::Right),
+        space,
+    );
+
+    if app_state.notification.1.is_running() {
+        if app_state.notification.1.elapsed().as_secs() > NOTIFICATION_TIMEOUT_S {
+            app_state.notification.0 = "".to_string();
+            app_state.notification.1 = Stopwatch::new();
+        }
+    }
+
+}
+
 fn ui(app_state: &mut AppState, frame: &mut Frame) {
     // header and footer split
     let main_layout = Layout::new(
@@ -744,7 +786,8 @@ fn ui(app_state: &mut AppState, frame: &mut Frame) {
     )
     .split(main_layout[1]);
 
-    render_header_footer(frame, main_layout[0], main_layout[2]);
+    render_header_footer(app_state, frame, main_layout[0], main_layout[2]);
+    render_notification(app_state, frame, main_layout[0]);
     render_tracklist(frame, app_state, inner_layout[1]);
     render_left_sidebar(frame, app_state, inner_layout[0]);
 
