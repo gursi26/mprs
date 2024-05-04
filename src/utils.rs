@@ -6,12 +6,14 @@ use std::{
     str::FromStr,
 };
 
+use ratatui::prelude::*;
 use crossterm::event::{KeyCode, KeyModifiers};
 use lofty::file::{AudioFile, TaggedFileExt};
 use lofty::probe::Probe;
 use lofty::tag::Accessor;
 
 use dirs::home_dir;
+use ratatui::layout::{Constraint, Layout};
 
 use crate::{MPV_LUASCRIPT_FILENAME, MPV_STATUS_IPC_FILENAME, MUSIC_DIR};
 
@@ -181,11 +183,14 @@ pub enum UserInput {
     JumpToBottom,
     JumpToTop,
     JumpMultipleDown,
-    JumpMultipleUp
+    JumpMultipleUp,
+    Delete,
+    ConfirmYes,
+    ConfirmNo,
 }
 
 pub fn get_input_key() -> UserInput {
-    if crossterm::event::poll(std::time::Duration::from_millis(250)).unwrap() {
+    if crossterm::event::poll(std::time::Duration::from_millis(50)).unwrap() {
         // If a key event occurs, handle it
         if let crossterm::event::Event::Key(key) = crossterm::event::read().unwrap() {
             if key.kind == crossterm::event::KeyEventKind::Press {
@@ -197,7 +202,10 @@ pub fn get_input_key() -> UserInput {
                     (KeyCode::Char('d'), KeyModifiers::CONTROL) => UserInput::JumpMultipleDown,
                     (KeyCode::Char('u'), KeyModifiers::CONTROL) => UserInput::JumpMultipleUp,
                     (KeyCode::Char('G'), KeyModifiers::SHIFT) => UserInput::JumpToBottom,
+                    (KeyCode::Char('y'), _) => UserInput::ConfirmYes,
+                    (KeyCode::Char('n'), _) => UserInput::ConfirmNo,
                     (KeyCode::Char('q'), _) => UserInput::Quit,
+                    (KeyCode::Char('d'), _) => UserInput::Delete,
                     (KeyCode::Char('g'), _) => UserInput::JumpToTop,
                     (KeyCode::Char('j'), _) => UserInput::SelectLower,
                     (KeyCode::Char('k'), _) => UserInput::SelectUpper,
@@ -231,4 +239,21 @@ pub fn setup_logger() -> Result<(), fern::InitError> {
         .chain(fern::log_file("output.log")?)
         .apply()?;
     Ok(())
+}
+
+// from https://github.com/ratatui-org/ratatui/blob/main/examples/popup.rs#L113
+pub fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
+    let popup_layout = Layout::vertical([
+        Constraint::Percentage((100 - percent_y) / 2),
+        Constraint::Percentage(percent_y),
+        Constraint::Percentage((100 - percent_y) / 2),
+    ])
+    .split(r);
+
+    Layout::horizontal([
+        Constraint::Percentage((100 - percent_x) / 2),
+        Constraint::Percentage(percent_x),
+        Constraint::Percentage((100 - percent_x) / 2),
+    ])
+    .split(popup_layout[1])[1]
 }

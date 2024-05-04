@@ -1,7 +1,7 @@
 use anyhow::Result;
 use crossterm::{
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{disable_raw_mode, enable_raw_mode, Clear, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use image::codecs::png::FilterType;
 use ratatui::prelude::{CrosstermBackend, Frame, Terminal};
@@ -16,9 +16,12 @@ use style::palette::tailwind;
 
 use crate::{
     mpv::{initialize_player, play_track},
-    state::{AppState, FocusedWindow},
+    state::{AppState, DeleteType, FocusedWindow},
     track_queue::TrackType,
-    utils::{get_album_cover, get_input_key, get_progress_display_str, wrap_string, UserInput},
+    utils::{
+        centered_rect, get_album_cover, get_input_key, get_progress_display_str, wrap_string,
+        UserInput,
+    },
     MULTIPLE_JUMP_DISTANCE, UI_SLEEP_DURATION,
 };
 
@@ -51,7 +54,7 @@ pub async fn run<'a>(app_state: Arc<Mutex<AppState<'a>>>) -> Result<()> {
     loop {
         let mut curr_app_state_rc = app_state.lock().unwrap();
 
-        update(&mut curr_app_state_rc);
+        update(&mut curr_app_state_rc, false);
 
         t.draw(|f| {
             ui(&mut curr_app_state_rc, f);
@@ -171,7 +174,7 @@ fn handle_user_input(app_state: &mut AppState) {
                         app_state.track_queue.add_to_reg_queue(t_id.clone());
                     }
                 }
-                initialize_player(app_state)
+                initialize_player(app_state);
             }
             _ => {
                 app_state.focused_window = FocusedWindow::TrackList;
@@ -269,6 +272,28 @@ fn handle_user_input(app_state: &mut AppState) {
                 }
             }
         },
+        UserInput::Delete => match app_state.focused_window {
+            FocusedWindow::TrackList => {
+                let s_id = app_state.display_track_list.2.get(app_state.display_track_list.0.selected().unwrap()).unwrap();
+                app_state.display_deletion_window = Some(DeleteType::TrackDelete(*s_id));
+            },
+            FocusedWindow::FilterOptions => {
+                let ff = app_state.filter_filter_options.1[app_state.filter_filter_options.0.selected().unwrap()];
+                if ff == "Playlists" {
+                    let pname = app_state.filter_options.1.get(app_state.filter_options.0.selected().unwrap()).unwrap();
+                    if pname != "Liked" {
+                        app_state.display_deletion_window = Some(DeleteType::PlaylistDelete(pname.clone()));
+                    }
+                }
+            },
+            FocusedWindow::FilterFilterOptions => {}
+        },
+        UserInput::ConfirmYes => {
+            app_state.confirmed = Some(true);
+        },
+        UserInput::ConfirmNo => {
+            app_state.confirmed = Some(false);
+        }
         _ => {}
     }
 }
@@ -377,27 +402,33 @@ fn update_tracklist(app_state: &mut AppState) {
 // TODO: <Enter> - Play track, a - add track to curr playlist (only available in track pane when on
 // a playlist), a in playlist pane - new playlist with optional spotify link paste to import from
 // spotify, l - add track to queue, e - edit currently focused track
-fn update(app_state: &mut AppState) {
+pub fn update(app_state: &mut AppState, force_refresh: bool) {
     handle_user_input(app_state);
 
     let (c1, c2) = (
         app_state.filter_filter_options.0.selected().unwrap(),
         app_state.filter_options.0.selected().unwrap(),
     );
-    match (
-        &mut app_state.prev_filter_filter_selection,
-        &mut app_state.prev_filter_selection,
-    ) {
-        (Some(s1), Some(s2)) => {
-            if c1 != *s1 || c2 != *s2 {
+
+    if !force_refresh {
+        match (
+            &mut app_state.prev_filter_filter_selection,
+            &mut app_state.prev_filter_selection,
+        ) {
+            (Some(s1), Some(s2)) => {
+                if c1 != *s1 || c2 != *s2 {
+                    update_filter_options(app_state);
+                    update_tracklist(app_state);
+                }
+            }
+            (_, _) => {
                 update_filter_options(app_state);
                 update_tracklist(app_state);
             }
         }
-        (_, _) => {
-            update_filter_options(app_state);
-            update_tracklist(app_state);
-        }
+    } else {
+        update_filter_options(app_state);
+        update_tracklist(app_state);
     }
     app_state.prev_filter_filter_selection = Some(c1);
     app_state.prev_filter_selection = Some(c2);
@@ -642,6 +673,55 @@ fn render_curr_track_info(frame: &mut Frame, app_state: &mut AppState, space: Re
     render_curr_track_text(frame, app_state, curr_track_block[2]);
 }
 
+fn render_confirmation_window(app_state: &mut AppState, frame: &mut Frame) {
+    if let Some(delete_enum) = &app_state.display_deletion_window {
+        let centered_rect = centered_rect(30, 10, frame.size());
+        frame.render_widget(ratatui::widgets::Clear, centered_rect);
+        frame.render_widget(Block::new().borders(Borders::ALL), centered_rect);
+
+        let message;
+        match delete_enum {
+            DeleteType::TrackDelete(id) => {
+                let track_name = app_state.track_db.trackmap.get(&id).unwrap().name.clone();
+                message = format!("Confirm delete track \'{}\'?", track_name);
+            },
+            DeleteType::PlaylistDelete(name) => message = format!("Confirm delete playlist \'{}\'?", name),
+        }
+
+        let p_areas = Layout::new(Direction::Vertical, [Constraint::Percentage(70), Constraint::Percentage(30)]).split(centered_rect);
+        frame.render_widget(
+            Paragraph::new(message).wrap(Wrap { trim: true }),
+            p_areas[0].inner(&Margin { horizontal: 1, vertical: 1 }),
+        );
+        frame.render_widget(
+            Paragraph::new("[y] Yes \t [n] No").centered(),
+            p_areas[1],
+        );
+
+        match app_state.confirmed {
+            Some(x) => {
+                if x {
+                    match delete_enum {
+                        DeleteType::TrackDelete(idx) => {
+                            app_state.track_db.remove_track(*idx, None);
+                        },
+                        DeleteType::PlaylistDelete(name) => {
+                            app_state.track_db.remove_playlist(name.clone());
+                        }
+                    }
+                    app_state.display_deletion_window = None;
+                    app_state.confirmed = None;
+                    update(app_state, true);
+                } else {
+                    app_state.display_deletion_window = None;
+                    app_state.confirmed = None;
+                }
+            },
+            None => {}
+        }
+    }
+}
+
 fn ui(app_state: &mut AppState, frame: &mut Frame) {
     // header and footer split
     let main_layout = Layout::new(
@@ -667,4 +747,6 @@ fn ui(app_state: &mut AppState, frame: &mut Frame) {
     render_header_footer(frame, main_layout[0], main_layout[2]);
     render_tracklist(frame, app_state, inner_layout[1]);
     render_left_sidebar(frame, app_state, inner_layout[0]);
+
+    render_confirmation_window(app_state, frame);
 }

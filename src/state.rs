@@ -22,6 +22,11 @@ pub enum FocusedWindow {
     TrackList,
 }
 
+pub enum DeleteType {
+    TrackDelete(u32),
+    PlaylistDelete(String)
+}
+
 pub struct AppState<'a> {
     // internal state attributes
     pub mpv_child: Option<Child>,
@@ -38,6 +43,8 @@ pub struct AppState<'a> {
     pub curr_track_info: Option<TrackInfo>,
     pub curr_track_cover: Option<Box<dyn StatefulProtocol>>,
     pub focused_window: FocusedWindow,
+    pub display_deletion_window: Option<DeleteType>,
+    pub confirmed: Option<bool>,
 
     // differencing attributes
     pub prev_filter_filter_selection: Option<usize>,
@@ -108,6 +115,8 @@ impl<'a> Default for AppState<'a> {
             track_clock: Stopwatch::new(),
             track_db: TrackDB::init(),
             should_quit: false,
+            display_deletion_window: None,
+            confirmed: None,
 
             filter_filter_options: (
                 ListState::default().with_selected(Some(0)),

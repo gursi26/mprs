@@ -31,7 +31,7 @@ const MPV_STATUS_IPC_FILENAME: &str = ".mpv_status.txt";
 const MPV_LUASCRIPT_FILENAME: &str = "status_update.lua";
 
 const PLAYER_HANDLER_TIMEOUT_MS: u64 = 20;
-const UI_SLEEP_DURATION: u64 = 20;
+const UI_SLEEP_DURATION: u64 = 10;
 const PREV_SAME_TRACK_TIMEOUT_S: u64 = 3;
 
 const MULTIPLE_JUMP_DISTANCE: i32 = 20;
@@ -50,6 +50,11 @@ async fn main() {
     let player_update_handle = tokio::task::spawn(async move {
         player_handler(player_update_state_arc, PLAYER_HANDLER_TIMEOUT_MS).await;
     });
+
+    let a = Arc::clone(&app_state);
+    let mut l = a.lock().unwrap();
+    l.track_db.add_all_tracks(Some("rn".to_string()));
+    drop(l);
 
     run(Arc::clone(&app_state)).await.unwrap();
     drop(player_update_handle);
