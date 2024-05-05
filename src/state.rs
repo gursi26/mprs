@@ -51,7 +51,7 @@ pub struct AppState<'a> {
     pub display_deletion_window: Option<DeleteType>,
     pub confirmed: Option<bool>,
     pub shuffle: bool,
-    pub notification: (String, Stopwatch),
+    pub notification: (String, Stopwatch, bool),
     pub search_text_box: (bool, TextArea<'a>, Option<String>),
     pub search_results: (TableState, Vec<Row<'a>>, Vec<String>, Option<Child>, Option<String>),
 
@@ -61,9 +61,10 @@ pub struct AppState<'a> {
 }
 
 impl<'a> AppState<'a> {
-    pub fn display_notification(&mut self, message: String) {
+    pub fn display_notification(&mut self, message: String, persist: bool) {
         self.notification.0 = message;
         self.notification.1.start();
+        self.notification.2 = persist;
     }
 
     pub fn get_curr_track_path(&self) -> Option<PathBuf> {
@@ -140,7 +141,7 @@ impl<'a> Default for AppState<'a> {
             display_deletion_window: None,
             confirmed: None,
             shuffle: false,
-            notification: ("".to_string(), Stopwatch::new()),
+            notification: ("".to_string(), Stopwatch::new(), false),
             search_text_box: (false, textarea, None),
             search_results: (TableState::default().with_selected(Some(0)), Vec::new(), Vec::new(), None, None),
 

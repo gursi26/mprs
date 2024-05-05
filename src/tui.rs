@@ -231,7 +231,7 @@ fn handle_user_input(app_state: &mut AppState, spotify: &mut ClientCredsSpotify)
 
                 app_state.search_results.3 = Some(download_track(selected_url));
                 let curr_playlist = app_state.filter_options.1.get(app_state.filter_options.0.selected().unwrap()).unwrap().clone();
-                app_state.display_notification(format!(" Downloading track to playlist \'{}\' ", &curr_playlist));
+                app_state.display_notification(format!(" Downloading track to playlist \'{}\' ", &curr_playlist), true);
                 app_state.search_results.4 = Some(curr_playlist.clone());
 
                 app_state.search_text_box.0 = false;
@@ -388,7 +388,7 @@ fn handle_user_input(app_state: &mut AppState, spotify: &mut ClientCredsSpotify)
                         .clone();
                     app_state.track_queue.play_next(*curr_track_id);
                     app_state
-                        .display_notification(format!(" Playing track \'{}\' next ", track_name));
+                        .display_notification(format!(" Playing track \'{}\' next ", track_name), false);
                 }
             }
         }
@@ -412,7 +412,7 @@ fn handle_user_input(app_state: &mut AppState, spotify: &mut ClientCredsSpotify)
                     .clone();
                 app_state.track_queue.add_to_queue(*curr_track_id);
                 app_state
-                    .display_notification(format!(" Added track \'{}\' to queue ", track_name));
+                    .display_notification(format!(" Added track \'{}\' to queue ", track_name), false);
             }
             _ => {}
         },
@@ -554,7 +554,7 @@ pub fn update(app_state: &mut AppState, spotify: Option<&mut ClientCredsSpotify>
             app_state.search_results.4 = None;
             app_state.search_text_box.1.delete_line_by_end();
             app_state.track_db.add_all_tracks(app_state.search_results.4.clone());
-            app_state.display_notification(" Track added ".to_string());
+            app_state.display_notification(" Track added ".to_string(), false);
             update(app_state, None, true);
         }
     }
@@ -910,7 +910,7 @@ fn render_notification(app_state: &mut AppState, frame: &mut Frame, space: Rect)
     );
 
     if app_state.notification.1.is_running() {
-        if app_state.notification.1.elapsed().as_secs() > NOTIFICATION_TIMEOUT_S {
+        if app_state.notification.1.elapsed().as_secs() > NOTIFICATION_TIMEOUT_S && !app_state.notification.2 {
             app_state.notification.0 = "".to_string();
             app_state.notification.1 = Stopwatch::new();
         }
@@ -919,7 +919,7 @@ fn render_notification(app_state: &mut AppState, frame: &mut Frame, space: Rect)
 
 fn render_search_popup(app_state: &mut AppState, frame: &mut Frame) {
     if app_state.search_text_box.0 || app_state.search_text_box.2.is_some() {
-        let centered_rect = centered_rect(50, 30, frame.size());
+        let centered_rect = centered_rect(50, 33, frame.size());
         frame.render_widget(ratatui::widgets::Clear, centered_rect);
         frame.render_widget(Block::new().borders(Borders::ALL), centered_rect);
 
@@ -942,16 +942,16 @@ fn render_search_popup(app_state: &mut AppState, frame: &mut Frame) {
         }
 
         let widths = [
-            Constraint::Percentage(25),
-            Constraint::Percentage(25),
-            Constraint::Percentage(25),
-            Constraint::Percentage(25),
+            Constraint::Percentage(50),
+            Constraint::Percentage(20),
+            Constraint::Percentage(20),
+            Constraint::Percentage(10),
         ];
         let table = Table::new(app_state.search_results.1.clone(), widths)
             .header(Row::new(vec!["Title", "Artists", "Album", "Duration"]))
             .highlight_style(Style::new().fg(SELECT_COLOR));
 
-        frame.render_stateful_widget(table, search_split[1].inner(&Margin { horizontal: 1, vertical: 1 }), &mut app_state.search_results.0);
+        frame.render_stateful_widget(table, search_split[1].inner(&Margin { horizontal: 1, vertical: 0 }), &mut app_state.search_results.0);
     }
 }
 

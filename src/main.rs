@@ -37,7 +37,7 @@ const PREV_SAME_TRACK_TIMEOUT_S: u64 = 3;
 const KEY_INPUT_POLL_TIMEOUT_MS: u64 = 250;
 const NOTIFICATION_TIMEOUT_S: u64 = 3;
 
-const NUM_SEARCH_RESULTS: u32 = 5;
+const NUM_SEARCH_RESULTS: u32 = 10;
 const MULTIPLE_JUMP_DISTANCE: i32 = 20;
 
 // TODO: Switch to Unix domain sockets for IPC
