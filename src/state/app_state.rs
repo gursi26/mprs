@@ -8,13 +8,14 @@ use ratatui_image::picker::Picker;
 use ratatui_image::protocol::StatefulProtocol;
 use serde::Deserialize;
 use serde::Serialize;
-use tui_textarea::TextArea;
 use std::path::PathBuf;
 use std::process::Child;
 use std::sync::Arc;
 use std::sync::Mutex;
 use stopwatch::Stopwatch;
+use tui_textarea::TextArea;
 
+use super::scrollable_state::ScrollableState;
 use crate::db::{TrackDB, TrackInfo};
 use crate::track_queue::TrackQueue;
 use crate::track_queue::TrackType;
@@ -24,12 +25,12 @@ pub enum FocusedWindow {
     FilterFilterOptions,
     FilterOptions,
     TrackList,
-    SearchPopup
+    SearchPopup,
 }
 
 pub enum DeleteType {
     TrackDelete(u32),
-    PlaylistDelete(String)
+    PlaylistDelete(String),
 }
 
 pub struct AppState<'a> {
@@ -42,9 +43,9 @@ pub struct AppState<'a> {
     pub should_quit: bool,
 
     // ui display attributes
-    pub filter_filter_options: (ListState, [&'a str; 4]),
-    pub filter_options: (ListState, Vec<String>),
-    pub display_track_list: (TableState, Vec<Row<'a>>, Vec<u32>),
+    pub filter_filter: ScrollableState<String, ListState>,
+    pub filter: ScrollableState<String, ListState>,
+    pub track_list: ScrollableState<(u32, Vec<String>), TableState>,
     pub curr_track_info: Option<TrackInfo>,
     pub curr_track_cover: Option<Box<dyn StatefulProtocol>>,
     pub focused_window: FocusedWindow,
@@ -53,7 +54,13 @@ pub struct AppState<'a> {
     pub shuffle: bool,
     pub notification: (String, Stopwatch, bool),
     pub search_text_box: (bool, TextArea<'a>, Option<String>),
-    pub search_results: (TableState, Vec<Row<'a>>, Vec<String>, Option<Child>, Option<String>),
+    pub search_results: (
+        TableState,
+        Vec<Row<'a>>,
+        Vec<String>,
+        Option<Child>,
+        Option<String>,
+    ),
 
     // differencing attributes
     pub prev_filter_filter_selection: Option<usize>,
@@ -88,14 +95,14 @@ impl<'a> AppState<'a> {
     pub fn get_curr_track_info(&self) -> Option<&TrackInfo> {
         match self.get_curr_track_id() {
             Some(id) => Some(self.track_db.trackmap.get(&id).unwrap()),
-            None => None
+            None => None,
         }
     }
 
     pub fn update_curr_album_cover(&mut self) {
         let img_bytes = get_album_cover(&match &self.curr_track_info {
             Some(c) => c.get_file_path(),
-            None => return
+            None => return,
         });
         let img = image::load_from_memory(&img_bytes).unwrap();
 
@@ -126,10 +133,7 @@ impl<'a> Default for AppState<'a> {
         let mut textarea = TextArea::default();
         textarea.set_cursor_line_style(Style::default());
         textarea.set_placeholder_text("Enter Search Term");
-        textarea.set_block(
-            Block::default()
-                .borders(Borders::ALL)
-        );
+        textarea.set_block(Block::default().borders(Borders::ALL));
 
         AppState {
             mpv_child: None,
@@ -143,19 +147,30 @@ impl<'a> Default for AppState<'a> {
             shuffle: false,
             notification: ("".to_string(), Stopwatch::new(), false),
             search_text_box: (false, textarea, None),
-            search_results: (TableState::default().with_selected(Some(0)), Vec::new(), Vec::new(), None, None),
-
-            filter_filter_options: (
-                ListState::default().with_selected(Some(0)),
-                ["Playlists", "Artists", "Albums", "All"],
+            search_results: (
+                TableState::default().with_selected(Some(0)),
+                Vec::new(),
+                Vec::new(),
+                None,
+                None,
             ),
-            filter_options: (ListState::default().with_selected(Some(0)), Vec::new()),
-            display_track_list: (TableState::default().with_selected(Some(0)), Vec::new(), Vec::new()),
+
+            filter_filter: ScrollableState {
+                options: vec![
+                    "Playlists".to_string(),
+                    "Artists".to_string(),
+                    "Albums".to_string(),
+                    "All".to_string(),
+                ],
+                ..Default::default()
+            },
+            filter: ScrollableState::default(),
+            track_list: ScrollableState::default(),
             curr_track_info: None,
             curr_track_cover: None,
             focused_window: FocusedWindow::FilterFilterOptions,
             prev_filter_filter_selection: None,
-            prev_filter_selection: None
+            prev_filter_selection: None,
         }
     }
 }

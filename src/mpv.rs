@@ -3,8 +3,8 @@ use stopwatch::Stopwatch;
 use crate::track_queue::TrackQueue;
 use crate::tui::update;
 use crate::utils::{get_ipc_path, parse_bool};
-use crate::PREV_SAME_TRACK_TIMEOUT_S;
-use crate::{state::AppState, utils::get_luascript_path};
+use crate::consts::PREV_SAME_TRACK_TIMEOUT_S;
+use crate::{state::app_state::AppState, utils::get_luascript_path};
 use std::fs::read_to_string;
 use std::process::{exit, Command};
 use std::thread::sleep;
@@ -15,6 +15,7 @@ use std::{
     process::Child,
     sync::{Arc, Mutex},
 };
+use crate::tui::update::update;
 
 pub fn kill_track(mpv_child: Arc<Mutex<Child>>) {
     let mut child = mpv_child.lock().unwrap();
