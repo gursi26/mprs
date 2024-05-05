@@ -229,10 +229,14 @@ fn handle_user_input(app_state: &mut AppState, spotify: &mut ClientCredsSpotify)
                 let selected_url = app_state.search_results.2.get(app_state.search_results.0.selected().unwrap()).unwrap();
                 app_state.search_results.1 = Vec::new();
 
-                download_track(selected_url);
-                let curr_playlist = app_state.filter_options.1.get(app_state.filter_options.0.selected().unwrap()).unwrap();
-                app_state.track_db.add_all_tracks(Some(curr_playlist.clone()));
-                update(app_state, None, true);
+                app_state.search_results.3 = Some(download_track(selected_url));
+                let curr_playlist = app_state.filter_options.1.get(app_state.filter_options.0.selected().unwrap()).unwrap().clone();
+                app_state.display_notification(format!(" Downloading track to playlist \'{}\' ", &curr_playlist));
+                app_state.search_results.4 = Some(curr_playlist.clone());
+
+                app_state.search_text_box.0 = false;
+                app_state.search_text_box.2 = None;
+                app_state.focused_window = FocusedWindow::TrackList;
             }
             _ => {
                 app_state.focused_window = FocusedWindow::TrackList;
@@ -544,6 +548,17 @@ fn update_tracklist(app_state: &mut AppState) {
 // a playlist), a in playlist pane - new playlist with optional spotify link paste to import from
 // spotify, l - add track to queue, e - edit currently focused track
 pub fn update(app_state: &mut AppState, spotify: Option<&mut ClientCredsSpotify>, force_refresh: bool) {
+    if let Some(c) = &mut app_state.search_results.3 {
+        if c.try_wait().unwrap().is_some() {
+            app_state.search_results.3 = None;
+            app_state.search_results.4 = None;
+            app_state.search_text_box.1.delete_line_by_end();
+            app_state.track_db.add_all_tracks(app_state.search_results.4.clone());
+            app_state.display_notification(" Track added ".to_string());
+            update(app_state, None, true);
+        }
+    }
+
     if let Some(s) = spotify {
         handle_user_input(app_state, s);
     }
@@ -920,6 +935,11 @@ fn render_search_popup(app_state: &mut AppState, frame: &mut Frame) {
                 vertical: 1,
             }),
         );
+
+        if app_state.search_results.3.is_some() {
+            frame.render_widget(Paragraph::new("Downloading track..."), search_split[1].inner(&Margin { horizontal: 1, vertical: 1 }));
+            return;
+        }
 
         let widths = [
             Constraint::Percentage(25),

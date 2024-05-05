@@ -1,4 +1,4 @@
-use std::{path::PathBuf, process::{Command, Stdio}};
+use std::{path::PathBuf, process::{Child, Command, Stdio}};
 use log::debug;
 use rspotify::{
     model::{AlbumId, SearchResult as rsptSearchResult, SearchType},
@@ -123,7 +123,7 @@ pub fn search_tracks(search_string: String, n_results: u32, spotify: &mut Client
     parsed_results
 }
 
-pub fn download_track(url: &String) {
+pub fn download_track(url: &String) -> Child {
     debug!("Downloading track from url: {}", url);
 
     Command::new("spotdl")
@@ -134,6 +134,6 @@ pub fn download_track(url: &String) {
         .arg(get_newtracks_dir().as_os_str().to_str().unwrap())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
-        .output()
-        .unwrap();
+        .spawn()
+        .unwrap()
 }

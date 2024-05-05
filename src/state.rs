@@ -53,7 +53,7 @@ pub struct AppState<'a> {
     pub shuffle: bool,
     pub notification: (String, Stopwatch),
     pub search_text_box: (bool, TextArea<'a>, Option<String>),
-    pub search_results: (TableState, Vec<Row<'a>>, Vec<String>),
+    pub search_results: (TableState, Vec<Row<'a>>, Vec<String>, Option<Child>, Option<String>),
 
     // differencing attributes
     pub prev_filter_filter_selection: Option<usize>,
@@ -142,7 +142,7 @@ impl<'a> Default for AppState<'a> {
             shuffle: false,
             notification: ("".to_string(), Stopwatch::new()),
             search_text_box: (false, textarea, None),
-            search_results: (TableState::default().with_selected(Some(0)), Vec::new(), Vec::new()),
+            search_results: (TableState::default().with_selected(Some(0)), Vec::new(), Vec::new(), None, None),
 
             filter_filter_options: (
                 ListState::default().with_selected(Some(0)),
