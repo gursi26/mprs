@@ -60,7 +60,7 @@ pub fn play_track(app_state: &mut AppState) {
     };
 
     app_state.update_curr_album_cover();
-    update(app_state, true);
+    update(app_state, None, true);
 
     app_state.mpv_child = Some(
         Command::new("mpv")

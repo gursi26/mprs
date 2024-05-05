@@ -188,7 +188,9 @@ pub enum UserInput {
     ConfirmYes,
     ConfirmNo,
     ToggleShuffle,
-    AddToQueue
+    AddToQueue,
+    AddTrackOrPlaylist,
+    Escape
 }
 
 pub fn get_input_key() -> UserInput {
@@ -205,6 +207,8 @@ pub fn get_input_key() -> UserInput {
                     (KeyCode::Char('u'), KeyModifiers::CONTROL) => UserInput::JumpMultipleUp,
                     (KeyCode::Char('G'), KeyModifiers::SHIFT) => UserInput::JumpToBottom,
                     (KeyCode::Char('s'), _) => UserInput::ToggleShuffle,
+                    (KeyCode::Esc, _) => UserInput::Escape,
+                    (KeyCode::Char('a'), _) => UserInput::AddTrackOrPlaylist,
                     (KeyCode::Char('l'), _) => UserInput::AddToQueue,
                     (KeyCode::Char('y'), _) => UserInput::ConfirmYes,
                     (KeyCode::Char('n'), _) => UserInput::ConfirmNo,
@@ -273,5 +277,6 @@ pub fn get_keybind_string(app_state: &AppState) -> String {
         FocusedWindow::FilterFilterOptions => {
             "".to_string()
         }
+        _ => "".to_string()
     }
 }

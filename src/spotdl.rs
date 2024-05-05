@@ -5,6 +5,7 @@ use rspotify::{
     prelude::*,
     ClientCredsSpotify, Credentials,
 };
+use tokio::runtime::Runtime;
 
 use std::fs::File;
 
@@ -72,20 +73,23 @@ pub fn init_spotify_client() -> ClientCredsSpotify {
     ClientCredsSpotify::new(creds)
 }
 
-pub async fn search_tracks(search_string: String, n_results: u32, spotify: &mut ClientCredsSpotify) -> Vec<SearchResult> {
+pub fn search_tracks(search_string: String, n_results: u32, spotify: &mut ClientCredsSpotify) -> Vec<SearchResult> {
     debug!("Searching for query \'{}\'", &search_string);
-    spotify.request_token().await.unwrap();
-    let results = spotify
-        .search(
-            &search_string[..],
-            SearchType::Track,
-            None,
-            None,
-            Some(n_results),
-            None,
-        )
-        .await
-        .unwrap();
+    let rt = Runtime::new().unwrap();
+    let results = rt.block_on(async {
+        spotify.request_token().await.unwrap();
+        spotify
+            .search(
+                &search_string[..],
+                SearchType::Track,
+                None,
+                None,
+                Some(n_results),
+                None,
+            )
+            .await
+            .unwrap()
+    });
 
     let mut parsed_results = Vec::new();
     if let rsptSearchResult::Tracks(tracks) = results {
@@ -119,9 +123,8 @@ pub async fn search_tracks(search_string: String, n_results: u32, spotify: &mut 
     parsed_results
 }
 
-pub fn download_track(track: &SearchResult) {
-    debug!("Downloading track : {:?}", track);
-    let url = track.get_url();
+pub fn download_track(url: &String) {
+    debug!("Downloading track from url: {}", url);
 
     Command::new("spotdl")
         .arg(format!("{}", url))
