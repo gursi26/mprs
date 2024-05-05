@@ -1,3 +1,6 @@
+use ratatui::style::Style;
+use ratatui::widgets::Block;
+use ratatui::widgets::Borders;
 use ratatui::widgets::ListState;
 use ratatui::widgets::Row;
 use ratatui::widgets::TableState;
@@ -5,6 +8,7 @@ use ratatui_image::picker::Picker;
 use ratatui_image::protocol::StatefulProtocol;
 use serde::Deserialize;
 use serde::Serialize;
+use tui_textarea::TextArea;
 use std::path::PathBuf;
 use std::process::Child;
 use std::sync::Arc;
@@ -20,6 +24,12 @@ pub enum FocusedWindow {
     FilterFilterOptions,
     FilterOptions,
     TrackList,
+    SearchPopup
+}
+
+pub enum DeleteType {
+    TrackDelete(u32),
+    PlaylistDelete(String)
 }
 
 pub struct AppState<'a> {
@@ -38,6 +48,12 @@ pub struct AppState<'a> {
     pub curr_track_info: Option<TrackInfo>,
     pub curr_track_cover: Option<Box<dyn StatefulProtocol>>,
     pub focused_window: FocusedWindow,
+    pub display_deletion_window: Option<DeleteType>,
+    pub confirmed: Option<bool>,
+    pub shuffle: bool,
+    pub notification: (String, Stopwatch, bool),
+    pub search_text_box: (bool, TextArea<'a>, Option<String>),
+    pub search_results: (TableState, Vec<Row<'a>>, Vec<String>, Option<Child>, Option<String>),
 
     // differencing attributes
     pub prev_filter_filter_selection: Option<usize>,
@@ -45,6 +61,12 @@ pub struct AppState<'a> {
 }
 
 impl<'a> AppState<'a> {
+    pub fn display_notification(&mut self, message: String, persist: bool) {
+        self.notification.0 = message;
+        self.notification.1.start();
+        self.notification.2 = persist;
+    }
+
     pub fn get_curr_track_path(&self) -> Option<PathBuf> {
         let curr_track_id = self.track_queue.get_curr_track();
         if let Some(id) = curr_track_id {
@@ -101,6 +123,14 @@ impl<'a> AppState<'a> {
 
 impl<'a> Default for AppState<'a> {
     fn default() -> Self {
+        let mut textarea = TextArea::default();
+        textarea.set_cursor_line_style(Style::default());
+        textarea.set_placeholder_text("Enter Search Term");
+        textarea.set_block(
+            Block::default()
+                .borders(Borders::ALL)
+        );
+
         AppState {
             mpv_child: None,
             paused: false,
@@ -108,6 +138,12 @@ impl<'a> Default for AppState<'a> {
             track_clock: Stopwatch::new(),
             track_db: TrackDB::init(),
             should_quit: false,
+            display_deletion_window: None,
+            confirmed: None,
+            shuffle: false,
+            notification: ("".to_string(), Stopwatch::new(), false),
+            search_text_box: (false, textarea, None),
+            search_results: (TableState::default().with_selected(Some(0)), Vec::new(), Vec::new(), None, None),
 
             filter_filter_options: (
                 ListState::default().with_selected(Some(0)),

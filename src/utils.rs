@@ -6,14 +6,16 @@ use std::{
     str::FromStr,
 };
 
+use ratatui::prelude::*;
 use crossterm::event::{KeyCode, KeyModifiers};
 use lofty::file::{AudioFile, TaggedFileExt};
 use lofty::probe::Probe;
 use lofty::tag::Accessor;
 
 use dirs::home_dir;
+use ratatui::layout::{Constraint, Layout};
 
-use crate::{MPV_LUASCRIPT_FILENAME, MPV_STATUS_IPC_FILENAME, MUSIC_DIR};
+use crate::{state::{AppState, FocusedWindow}, KEY_INPUT_POLL_TIMEOUT_MS, MPV_LUASCRIPT_FILENAME, MPV_STATUS_IPC_FILENAME, MUSIC_DIR};
 
 pub fn get_music_dir() -> PathBuf {
     let mut d = home_dir().unwrap();
@@ -181,11 +183,18 @@ pub enum UserInput {
     JumpToBottom,
     JumpToTop,
     JumpMultipleDown,
-    JumpMultipleUp
+    JumpMultipleUp,
+    Delete,
+    ConfirmYes,
+    ConfirmNo,
+    ToggleShuffle,
+    AddToQueue,
+    AddTrackOrPlaylist,
+    Escape
 }
 
 pub fn get_input_key() -> UserInput {
-    if crossterm::event::poll(std::time::Duration::from_millis(250)).unwrap() {
+    if crossterm::event::poll(std::time::Duration::from_millis(KEY_INPUT_POLL_TIMEOUT_MS)).unwrap() {
         // If a key event occurs, handle it
         if let crossterm::event::Event::Key(key) = crossterm::event::read().unwrap() {
             if key.kind == crossterm::event::KeyEventKind::Press {
@@ -197,7 +206,14 @@ pub fn get_input_key() -> UserInput {
                     (KeyCode::Char('d'), KeyModifiers::CONTROL) => UserInput::JumpMultipleDown,
                     (KeyCode::Char('u'), KeyModifiers::CONTROL) => UserInput::JumpMultipleUp,
                     (KeyCode::Char('G'), KeyModifiers::SHIFT) => UserInput::JumpToBottom,
+                    (KeyCode::Char('s'), _) => UserInput::ToggleShuffle,
+                    (KeyCode::Esc, _) => UserInput::Escape,
+                    (KeyCode::Char('a'), _) => UserInput::AddTrackOrPlaylist,
+                    (KeyCode::Char('l'), _) => UserInput::AddToQueue,
+                    (KeyCode::Char('y'), _) => UserInput::ConfirmYes,
+                    (KeyCode::Char('n'), _) => UserInput::ConfirmNo,
                     (KeyCode::Char('q'), _) => UserInput::Quit,
+                    (KeyCode::Char('d'), _) => UserInput::Delete,
                     (KeyCode::Char('g'), _) => UserInput::JumpToTop,
                     (KeyCode::Char('j'), _) => UserInput::SelectLower,
                     (KeyCode::Char('k'), _) => UserInput::SelectUpper,
@@ -231,4 +247,36 @@ pub fn setup_logger() -> Result<(), fern::InitError> {
         .chain(fern::log_file("output.log")?)
         .apply()?;
     Ok(())
+}
+
+// from https://github.com/ratatui-org/ratatui/blob/main/examples/popup.rs#L113
+pub fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
+    let popup_layout = Layout::vertical([
+        Constraint::Percentage((100 - percent_y) / 2),
+        Constraint::Percentage(percent_y),
+        Constraint::Percentage((100 - percent_y) / 2),
+    ])
+    .split(r);
+
+    Layout::horizontal([
+        Constraint::Percentage((100 - percent_x) / 2),
+        Constraint::Percentage(percent_x),
+        Constraint::Percentage((100 - percent_x) / 2),
+    ])
+    .split(popup_layout[1])[1]
+}
+
+pub fn get_keybind_string(app_state: &AppState) -> String {
+    match app_state.focused_window {
+        FocusedWindow::TrackList => {
+            " (Enter): Play track | (l): Add to queue | (n): Play next | (s): Toggle shuffle | (d): Delete track | (j/k): Move up/down | (g/Shift-g): Jump to top/bottom | (Ctrl-u/d): Jump up/down ".to_string()
+        },
+        FocusedWindow::FilterOptions => {
+            "".to_string()
+        }
+        FocusedWindow::FilterFilterOptions => {
+            "".to_string()
+        }
+        _ => "".to_string()
+    }
 }

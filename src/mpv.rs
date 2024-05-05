@@ -1,6 +1,7 @@
 use log::debug;
 use stopwatch::Stopwatch;
 use crate::track_queue::TrackQueue;
+use crate::tui::update;
 use crate::utils::{get_ipc_path, parse_bool};
 use crate::PREV_SAME_TRACK_TIMEOUT_S;
 use crate::{state::AppState, utils::get_luascript_path};
@@ -59,6 +60,7 @@ pub fn play_track(app_state: &mut AppState) {
     };
 
     app_state.update_curr_album_cover();
+    update(app_state, None, true);
 
     app_state.mpv_child = Some(
         Command::new("mpv")

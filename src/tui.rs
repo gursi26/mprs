@@ -1,25 +1,38 @@
 use anyhow::Result;
+use crossterm::event::DisableMouseCapture;
 use crossterm::{
+    event::EnableMouseCapture,
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{
+        disable_raw_mode, enable_raw_mode, Clear, EnterAlternateScreen, LeaveAlternateScreen,
+    },
 };
+
 use image::codecs::png::FilterType;
 use ratatui::prelude::{CrosstermBackend, Frame, Terminal};
 use ratatui::{prelude::*, widgets::*};
 use ratatui_image::{Resize, StatefulImage};
+use rspotify::ClientCredsSpotify;
 use std::{
     sync::{Arc, Mutex},
     thread::sleep,
     time::Duration,
 };
+use stopwatch::Stopwatch;
 use style::palette::tailwind;
+use tui_textarea::{Input, Key, TextArea};
 
+use crate::spotdl::{download_track, search_tracks};
+use crate::NUM_SEARCH_RESULTS;
 use crate::{
     mpv::{initialize_player, play_track},
-    state::{AppState, FocusedWindow},
+    state::{AppState, DeleteType, FocusedWindow},
     track_queue::TrackType,
-    utils::{get_album_cover, get_input_key, get_progress_display_str, wrap_string, UserInput},
-    MULTIPLE_JUMP_DISTANCE, UI_SLEEP_DURATION,
+    utils::{
+        centered_rect, get_album_cover, get_input_key, get_keybind_string,
+        get_progress_display_str, wrap_string, UserInput,
+    },
+    MULTIPLE_JUMP_DISTANCE, NOTIFICATION_TIMEOUT_S, UI_SLEEP_DURATION_MS,
 };
 
 const UNSELECTED_COLOR: Color = Color::White;
@@ -43,15 +56,18 @@ const ALBUM_COVER_SIZE: u16 = 80;
 const GAUGE_SIZE: u16 = 3;
 const TEXT_SIZE: u16 = 100 - (ALBUM_COVER_SIZE + GAUGE_SIZE);
 
-pub async fn run<'a>(app_state: Arc<Mutex<AppState<'a>>>) -> Result<()> {
-    startup().unwrap();
+pub fn run<'a>(app_state: Arc<Mutex<AppState<'a>>>, spotify: &mut ClientCredsSpotify) -> Result<()> {
+    enable_raw_mode()?;
 
-    let mut t = Terminal::new(CrosstermBackend::new(std::io::stderr()))?;
+    let stdout = std::io::stdout();
+    let mut stdout = stdout.lock();
+    execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+    let mut t = Terminal::new(CrosstermBackend::new(stdout))?;
 
     loop {
         let mut curr_app_state_rc = app_state.lock().unwrap();
 
-        update(&mut curr_app_state_rc);
+        update(&mut curr_app_state_rc, Some(spotify), false);
 
         t.draw(|f| {
             ui(&mut curr_app_state_rc, f);
@@ -61,7 +77,7 @@ pub async fn run<'a>(app_state: Arc<Mutex<AppState<'a>>>) -> Result<()> {
             break;
         }
         drop(curr_app_state_rc);
-        sleep(Duration::from_millis(UI_SLEEP_DURATION));
+        sleep(Duration::from_millis(UI_SLEEP_DURATION_MS));
     }
 
     shutdown().unwrap();
@@ -74,13 +90,38 @@ fn shutdown() -> Result<()> {
     Ok(())
 }
 
-fn startup() -> Result<()> {
-    enable_raw_mode()?;
-    execute!(std::io::stderr(), EnterAlternateScreen)?;
-    Ok(())
-}
+fn handle_user_input(app_state: &mut AppState, spotify: &mut ClientCredsSpotify) {
+    if app_state.search_text_box.0 {
+        match crossterm::event::read().unwrap().into() {
+            Input { key: Key::Enter, .. } => {
+                app_state.search_text_box.0 = false;
+                app_state.search_text_box.2 = Some(app_state.search_text_box.1.lines()[0].clone());
 
-fn handle_user_input(app_state: &mut AppState) {
+                let results = search_tracks(app_state.search_text_box.2.clone().unwrap(), NUM_SEARCH_RESULTS, spotify);
+                app_state.search_results.1 = Vec::new();
+                app_state.search_results.2 = Vec::new();
+
+                for r in results.into_iter() {
+                    app_state.search_results.2.push(r.get_url());
+
+                    let name = r.name;
+                    let artists = r.artists.join(", ");
+                    let album = r.album;
+                    let d_secs = r.duration;
+                    let duration = format!("{}:{:0>2}", d_secs / 60, d_secs - ((d_secs / 60) * 60));
+
+                    app_state.search_results.1.push(Row::new(vec![name, artists, album, duration]));
+                }
+            },
+            Input { key: Key::Esc, .. } => {
+                app_state.search_text_box.0 = false;
+            },
+            input => {
+                app_state.search_text_box.1.input(input);
+            }
+        }
+        return;
+    }
     match get_input_key() {
         UserInput::Quit => app_state.should_quit = true,
         UserInput::FocusLower => match app_state.focused_window {
@@ -130,6 +171,10 @@ fn handle_user_input(app_state: &mut AppState) {
             FocusedWindow::TrackList => {
                 let s_idx = app_state.display_track_list.0.selected_mut();
                 *s_idx = Some((s_idx.unwrap() + 1).min(app_state.display_track_list.1.len() - 1));
+            },
+            FocusedWindow::SearchPopup => {
+                let s_idx = app_state.search_results.0.selected_mut();
+                *s_idx = Some((s_idx.unwrap() + 1).min(app_state.search_results.1.len() - 1));
             }
         },
         UserInput::SelectUpper => match app_state.focused_window {
@@ -153,6 +198,10 @@ fn handle_user_input(app_state: &mut AppState) {
             FocusedWindow::TrackList => {
                 let s_idx = app_state.display_track_list.0.selected_mut();
                 *s_idx = Some((s_idx.unwrap() as i32 - 1).max(0) as usize);
+            },
+            FocusedWindow::SearchPopup => {
+                let s_idx = app_state.search_results.0.selected_mut();
+                *s_idx = Some((s_idx.unwrap() as i32 - 1).max(0) as usize);
             }
         },
         UserInput::Select => match app_state.focused_window {
@@ -163,15 +212,31 @@ fn handle_user_input(app_state: &mut AppState) {
                     .2
                     .get(app_state.display_track_list.0.selected().unwrap())
                     .unwrap();
-                app_state
-                    .track_queue
-                    .add_to_reg_queue(selected_t_id.clone());
                 for t_id in app_state.display_track_list.2.iter() {
                     if t_id != selected_t_id {
                         app_state.track_queue.add_to_reg_queue(t_id.clone());
                     }
                 }
-                initialize_player(app_state)
+                if app_state.shuffle {
+                    app_state.track_queue.shuffle_reg_queue();
+                }
+                app_state
+                    .track_queue
+                    .prepend_to_reg_queue(selected_t_id.clone());
+                initialize_player(app_state);
+            }
+            FocusedWindow::SearchPopup => {
+                let selected_url = app_state.search_results.2.get(app_state.search_results.0.selected().unwrap()).unwrap();
+                app_state.search_results.1 = Vec::new();
+
+                app_state.search_results.3 = Some(download_track(selected_url));
+                let curr_playlist = app_state.filter_options.1.get(app_state.filter_options.0.selected().unwrap()).unwrap().clone();
+                app_state.display_notification(format!(" Downloading track to playlist \'{}\' ", &curr_playlist), true);
+                app_state.search_results.4 = Some(curr_playlist.clone());
+
+                app_state.search_text_box.0 = false;
+                app_state.search_text_box.2 = None;
+                app_state.focused_window = FocusedWindow::TrackList;
             }
             _ => {
                 app_state.focused_window = FocusedWindow::TrackList;
@@ -189,7 +254,8 @@ fn handle_user_input(app_state: &mut AppState) {
             FocusedWindow::FilterOptions => {
                 let s = app_state.filter_options.0.selected_mut();
                 *s = Some(app_state.filter_options.1.len() - 1);
-            }
+            },
+            _ => {}
         },
         UserInput::JumpToTop => match app_state.focused_window {
             FocusedWindow::TrackList => {
@@ -203,7 +269,8 @@ fn handle_user_input(app_state: &mut AppState) {
             FocusedWindow::FilterOptions => {
                 let s = app_state.filter_options.0.selected_mut();
                 *s = Some(0);
-            }
+            },
+            _ => {}
         },
         UserInput::JumpMultipleUp => match app_state.focused_window {
             FocusedWindow::TrackList => {
@@ -226,7 +293,8 @@ fn handle_user_input(app_state: &mut AppState) {
                     Some(x) => *s = Some((x as i32 - MULTIPLE_JUMP_DISTANCE).max(0) as usize),
                     None => {}
                 }
-            }
+            },
+            _ => {}
         },
         UserInput::JumpMultipleDown => match app_state.focused_window {
             FocusedWindow::TrackList => {
@@ -268,7 +336,109 @@ fn handle_user_input(app_state: &mut AppState) {
                     None => {}
                 }
             }
+            _ => {}
         },
+        UserInput::Delete => match app_state.focused_window {
+            FocusedWindow::TrackList => {
+                let s_id = app_state
+                    .display_track_list
+                    .2
+                    .get(app_state.display_track_list.0.selected().unwrap())
+                    .unwrap();
+                app_state.display_deletion_window = Some(DeleteType::TrackDelete(*s_id));
+            }
+            FocusedWindow::FilterOptions => {
+                let ff = app_state.filter_filter_options.1
+                    [app_state.filter_filter_options.0.selected().unwrap()];
+                if ff == "Playlists" {
+                    let pname = app_state
+                        .filter_options
+                        .1
+                        .get(app_state.filter_options.0.selected().unwrap())
+                        .unwrap();
+                    if pname != "Liked" {
+                        app_state.display_deletion_window =
+                            Some(DeleteType::PlaylistDelete(pname.clone()));
+                    }
+                }
+            }
+            _ => {}
+        },
+        UserInput::ConfirmYes => {
+            if let Some(_) = app_state.display_deletion_window {
+                app_state.confirmed = Some(true);
+            }
+        }
+        UserInput::ConfirmNo => {
+            if let Some(_) = app_state.display_deletion_window {
+                app_state.confirmed = Some(false);
+            } else {
+                if let FocusedWindow::TrackList = app_state.focused_window {
+                    let curr_track_id = app_state
+                        .display_track_list
+                        .2
+                        .get(app_state.display_track_list.0.selected().unwrap())
+                        .unwrap();
+                    let track_name = app_state
+                        .track_db
+                        .trackmap
+                        .get(curr_track_id)
+                        .unwrap()
+                        .name
+                        .clone();
+                    app_state.track_queue.play_next(*curr_track_id);
+                    app_state
+                        .display_notification(format!(" Playing track \'{}\' next ", track_name), false);
+                }
+            }
+        }
+        UserInput::ToggleShuffle => {
+            app_state.shuffle = !app_state.shuffle;
+            app_state.track_queue.shuffle_reg_queue();
+        }
+        UserInput::AddToQueue => match app_state.focused_window {
+            FocusedWindow::TrackList => {
+                let curr_track_id = app_state
+                    .display_track_list
+                    .2
+                    .get(app_state.display_track_list.0.selected().unwrap())
+                    .unwrap();
+                let track_name = app_state
+                    .track_db
+                    .trackmap
+                    .get(curr_track_id)
+                    .unwrap()
+                    .name
+                    .clone();
+                app_state.track_queue.add_to_queue(*curr_track_id);
+                app_state
+                    .display_notification(format!(" Added track \'{}\' to queue ", track_name), false);
+            }
+            _ => {}
+        },
+        UserInput::AddTrackOrPlaylist => {
+            if app_state.filter_filter_options.1[app_state.filter_filter_options.0.selected().unwrap()] != "Playlists" {
+                return;
+            }
+            match app_state.focused_window {
+                FocusedWindow::TrackList => {
+                    app_state.search_text_box.0 = true;
+                    app_state.focused_window = FocusedWindow::SearchPopup;
+                },
+                FocusedWindow::FilterOptions => {
+
+                }
+                _ => {}
+            }
+        }
+        UserInput::Escape => match app_state.focused_window {
+            FocusedWindow::SearchPopup => {
+                app_state.focused_window = FocusedWindow::TrackList;
+                app_state.search_text_box.0 = false;
+                app_state.search_text_box.2 = None;
+            },
+            _ => {}
+        }
         _ => {}
     }
 }
@@ -377,33 +547,57 @@ fn update_tracklist(app_state: &mut AppState) {
 // TODO: <Enter> - Play track, a - add track to curr playlist (only available in track pane when on
 // a playlist), a in playlist pane - new playlist with optional spotify link paste to import from
 // spotify, l - add track to queue, e - edit currently focused track
-fn update(app_state: &mut AppState) {
-    handle_user_input(app_state);
+pub fn update(app_state: &mut AppState, spotify: Option<&mut ClientCredsSpotify>, force_refresh: bool) {
+    if let Some(c) = &mut app_state.search_results.3 {
+        if c.try_wait().unwrap().is_some() {
+            app_state.search_results.3 = None;
+            app_state.search_results.4 = None;
+            app_state.search_text_box.1.delete_line_by_end();
+            app_state.track_db.add_all_tracks(app_state.search_results.4.clone());
+            app_state.display_notification(" Track added ".to_string(), false);
+            update(app_state, None, true);
+        }
+    }
+
+    if let Some(s) = spotify {
+        handle_user_input(app_state, s);
+    }
 
     let (c1, c2) = (
         app_state.filter_filter_options.0.selected().unwrap(),
         app_state.filter_options.0.selected().unwrap(),
     );
-    match (
-        &mut app_state.prev_filter_filter_selection,
-        &mut app_state.prev_filter_selection,
-    ) {
-        (Some(s1), Some(s2)) => {
-            if c1 != *s1 || c2 != *s2 {
+
+    if !force_refresh {
+        match (
+            &mut app_state.prev_filter_filter_selection,
+            &mut app_state.prev_filter_selection,
+        ) {
+            (Some(s1), Some(s2)) => {
+                if c1 != *s1 || c2 != *s2 {
+                    update_filter_options(app_state);
+                    update_tracklist(app_state);
+                }
+            }
+            (_, _) => {
                 update_filter_options(app_state);
                 update_tracklist(app_state);
             }
         }
-        (_, _) => {
-            update_filter_options(app_state);
-            update_tracklist(app_state);
-        }
+    } else {
+        update_filter_options(app_state);
+        update_tracklist(app_state);
     }
     app_state.prev_filter_filter_selection = Some(c1);
     app_state.prev_filter_selection = Some(c2);
 }
 
-fn render_header_footer(frame: &mut Frame, header_space: Rect, footer_space: Rect) {
+fn render_header_footer(
+    app_state: &mut AppState,
+    frame: &mut Frame,
+    header_space: Rect,
+    footer_space: Rect,
+) {
     frame.render_widget(
         Block::new().borders(Borders::TOP).title(format!(
             " {} - v{} ",
@@ -414,7 +608,15 @@ fn render_header_footer(frame: &mut Frame, header_space: Rect, footer_space: Rec
     );
 
     frame.render_widget(
-        Block::new().borders(Borders::TOP).title("keybinds go here"),
+        Block::new()
+            .borders(Borders::TOP)
+            .title(get_keybind_string(app_state)),
+        footer_space,
+    );
+    frame.render_widget(
+        Block::new()
+            .title(format!(" Shuffle: {} ", app_state.shuffle))
+            .title_alignment(Alignment::Right),
         footer_space,
     );
 }
@@ -439,6 +641,7 @@ fn render_filter_filter_options(frame: &mut Frame, app_state: &mut AppState, spa
 fn render_filter_options(frame: &mut Frame, app_state: &mut AppState, space: Rect) {
     let curr_selected_filter_filter =
         app_state.filter_filter_options.1[app_state.filter_filter_options.0.selected().unwrap()];
+
     let filter_list = List::new(app_state.filter_options.1.clone())
         .block(
             Block::default()
@@ -543,6 +746,7 @@ fn render_left_sidebar(frame: &mut Frame, app_state: &mut AppState, space: Rect)
     render_curr_track_info(frame, app_state, left_sidebar_block[2]);
 }
 
+// TODO: Figure out how to center album cover
 fn render_album_cover(frame: &mut Frame, app_state: &mut AppState, space: Rect) {
     let img_widget = StatefulImage::new(None);
     let img_state = match &mut app_state.curr_track_cover {
@@ -642,6 +846,115 @@ fn render_curr_track_info(frame: &mut Frame, app_state: &mut AppState, space: Re
     render_curr_track_text(frame, app_state, curr_track_block[2]);
 }
 
+fn render_confirmation_window(app_state: &mut AppState, frame: &mut Frame) {
+    if let Some(delete_enum) = &app_state.display_deletion_window {
+        let centered_rect = centered_rect(30, 10, frame.size());
+        frame.render_widget(ratatui::widgets::Clear, centered_rect);
+        frame.render_widget(Block::new().borders(Borders::ALL), centered_rect);
+
+        let message;
+        match delete_enum {
+            DeleteType::TrackDelete(id) => {
+                let track_name = app_state.track_db.trackmap.get(&id).unwrap().name.clone();
+                message = format!("Confirm delete track \'{}\'?", track_name);
+            }
+            DeleteType::PlaylistDelete(name) => {
+                message = format!("Confirm delete playlist \'{}\'?", name)
+            }
+        }
+
+        let p_areas = Layout::new(
+            Direction::Vertical,
+            [Constraint::Percentage(70), Constraint::Percentage(30)],
+        )
+        .split(centered_rect);
+        frame.render_widget(
+            Paragraph::new(message).wrap(Wrap { trim: true }),
+            p_areas[0].inner(&Margin {
+                horizontal: 1,
+                vertical: 1,
+            }),
+        );
+        frame.render_widget(Paragraph::new("[y] Yes \t [n] No").centered(), p_areas[1]);
+
+        match app_state.confirmed {
+            Some(x) => {
+                if x {
+                    match delete_enum {
+                        DeleteType::TrackDelete(idx) => {
+                            app_state.track_db.remove_track(*idx, None);
+                        }
+                        DeleteType::PlaylistDelete(name) => {
+                            app_state.track_db.remove_playlist(name.clone());
+                        }
+                    }
+                    app_state.display_deletion_window = None;
+                    app_state.confirmed = None;
+                    update(app_state, None, true);
+                } else {
+                    app_state.display_deletion_window = None;
+                    app_state.confirmed = None;
+                }
+            }
+            None => {}
+        }
+    }
+}
+
+fn render_notification(app_state: &mut AppState, frame: &mut Frame, space: Rect) {
+    frame.render_widget(
+        Block::new()
+            .title(app_state.notification.0.clone())
+            .title_alignment(Alignment::Right),
+        space,
+    );
+
+    if app_state.notification.1.is_running() {
+        if app_state.notification.1.elapsed().as_secs() > NOTIFICATION_TIMEOUT_S && !app_state.notification.2 {
+            app_state.notification.0 = "".to_string();
+            app_state.notification.1 = Stopwatch::new();
+        }
+    }
+}
+
+fn render_search_popup(app_state: &mut AppState, frame: &mut Frame) {
+    if app_state.search_text_box.0 || app_state.search_text_box.2.is_some() {
+        let centered_rect = centered_rect(50, 33, frame.size());
+        frame.render_widget(ratatui::widgets::Clear, centered_rect);
+        frame.render_widget(Block::new().borders(Borders::ALL), centered_rect);
+
+        let search_split = Layout::new(
+            Direction::Vertical,
+            [Constraint::Length(5), Constraint::Min(0)],
+        )
+        .split(centered_rect);
+        frame.render_widget(
+            app_state.search_text_box.1.widget(),
+            search_split[0].inner(&Margin {
+                horizontal: 1,
+                vertical: 1,
+            }),
+        );
+
+        if app_state.search_results.3.is_some() {
+            frame.render_widget(Paragraph::new("Downloading track..."), search_split[1].inner(&Margin { horizontal: 1, vertical: 1 }));
+            return;
+        }
+
+        let widths = [
+            Constraint::Percentage(50),
+            Constraint::Percentage(20),
+            Constraint::Percentage(20),
+            Constraint::Percentage(10),
+        ];
+        let table = Table::new(app_state.search_results.1.clone(), widths)
+            .header(Row::new(vec!["Title", "Artists", "Album", "Duration"]))
+            .highlight_style(Style::new().fg(SELECT_COLOR));
+
+        frame.render_stateful_widget(table, search_split[1].inner(&Margin { horizontal: 1, vertical: 0 }), &mut app_state.search_results.0);
+    }
+}
+
 fn ui(app_state: &mut AppState, frame: &mut Frame) {
     // header and footer split
     let main_layout = Layout::new(
@@ -664,7 +977,10 @@ fn ui(app_state: &mut AppState, frame: &mut Frame) {
     )
     .split(main_layout[1]);
 
-    render_header_footer(frame, main_layout[0], main_layout[2]);
+    render_header_footer(app_state, frame, main_layout[0], main_layout[2]);
+    render_notification(app_state, frame, main_layout[0]);
     render_tracklist(frame, app_state, inner_layout[1]);
     render_left_sidebar(frame, app_state, inner_layout[0]);
+    render_confirmation_window(app_state, frame);
+    render_search_popup(app_state, frame);
 }

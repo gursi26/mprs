@@ -1,4 +1,6 @@
 use std::path::PathBuf;
+use rand::thread_rng;
+use rand::seq::SliceRandom;
 
 use log::debug;
 
@@ -28,7 +30,7 @@ impl TrackQueue {
     }
 
     pub fn shuffle_reg_queue(&mut self) {
-
+        self.reg_queue.shuffle(&mut thread_rng());
     }
 
     pub fn empty_queue(&mut self) {
@@ -52,6 +54,10 @@ impl TrackQueue {
 
     pub fn add_to_reg_queue(&mut self, p: u32) {
         self.reg_queue.push(p);
+    }
+
+    pub fn prepend_to_reg_queue(&mut self, p: u32) {
+        self.reg_queue.insert(0, p);
     }
 
     pub fn get_curr_track(&self) -> Option<u32> {

@@ -12,6 +12,7 @@ use db::TrackDB;
 use mpv::{initialize_player, next_track, play_track, player_handler, wait_for_player};
 use spotdl::{download_track, init_spotify_client, search_tracks};
 use state::AppState;
+use tokio::runtime::Runtime;
 use tui::run;
 use std::{
     fs::create_dir_all,
@@ -31,27 +32,29 @@ const MPV_STATUS_IPC_FILENAME: &str = ".mpv_status.txt";
 const MPV_LUASCRIPT_FILENAME: &str = "status_update.lua";
 
 const PLAYER_HANDLER_TIMEOUT_MS: u64 = 20;
-const UI_SLEEP_DURATION: u64 = 20;
+const UI_SLEEP_DURATION_MS: u64 = 10;
 const PREV_SAME_TRACK_TIMEOUT_S: u64 = 3;
+const KEY_INPUT_POLL_TIMEOUT_MS: u64 = 250;
+const NOTIFICATION_TIMEOUT_S: u64 = 3;
 
+const NUM_SEARCH_RESULTS: u32 = 10;
 const MULTIPLE_JUMP_DISTANCE: i32 = 20;
 
-// TODO: Write tui code
 // TODO: Switch to Unix domain sockets for IPC
 
-#[tokio::main]
-async fn main() {
+fn main() {
     init_functions();
     let mut spotify = init_spotify_client();
     let mut app_state = Arc::new(Mutex::new(AppState::default()));
 
     let player_update_state_arc = Arc::clone(&app_state);
 
-    let player_update_handle = tokio::task::spawn(async move {
+    let rt = Runtime::new().unwrap();
+    let player_update_handle = rt.spawn(async move {
         player_handler(player_update_state_arc, PLAYER_HANDLER_TIMEOUT_MS).await;
     });
 
-    run(Arc::clone(&app_state)).await.unwrap();
+    run(Arc::clone(&app_state), &mut spotify).unwrap();
     drop(player_update_handle);
 
     let curr_rc = Arc::clone(&app_state);
