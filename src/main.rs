@@ -18,9 +18,11 @@ use std::{
     time::Duration,
 };
 use track_queue::TrackQueue;
-use utils::init_files;
+// Import init_files function from utils module
+crate:: utils::init_files as init_files;
+use utils::init_files as init_files;
 
-const MUSIC_DIR: &str = "/Users/gursi/mprs-tracks";
+const MUSIC_DIR: &str = "/Users/stephenscott/mprs-tracks";
 const MPV_STATUS_IPC_FILENAME: &str = ".mpv_status.txt";
 const MPV_LUASCRIPT_FILENAME: &str = "status_update.lua";
 
@@ -32,9 +34,9 @@ async fn main() {
     init_files();
 
     let mut queue = TrackQueue::new();
-    queue.add_to_reg_queue(PathBuf::from_str("/Users/gursi/mprs-music/rn/kaw2.mp3").unwrap());
-    queue.add_to_reg_queue(PathBuf::from_str("/Users/gursi/mprs-music/rn/Visit to Hida.mp3").unwrap());
-    queue.play_next(PathBuf::from_str("/Users/gursi/mprs-music/rn/Gurenge.mp3").unwrap());
+    queue.add_to_reg_queue(PathBuf::from_str("/Users/stephenscott/mprs-music/liked/Set Fire to the Rain.mp3").unwrap());
+    queue.add_to_reg_queue(PathBuf::from_str("/Users/stephenscott/mprs-music/liked/Sunny Sunday [gcCyiUuCjqQ].mp3").unwrap());
+    queue.play_next(PathBuf::from_str("/Users/stephenscott/mprs-music/liked/Olivia Dean - Dive (Official Video) [NM4e606yFJg].mp3").unwrap());
 
     let mut app_state = Arc::new(Mutex::new(AppState {
         mpv_child: Command::new("ls").spawn().unwrap(),
