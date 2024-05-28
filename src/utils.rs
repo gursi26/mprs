@@ -15,7 +15,7 @@ use lofty::tag::Accessor;
 use dirs::home_dir;
 use ratatui::layout::{Constraint, Layout};
 
-use crate::{state::{AppState, FocusedWindow}, KEY_INPUT_POLL_TIMEOUT_MS, MPV_LUASCRIPT_FILENAME, MPV_STATUS_IPC_FILENAME, MUSIC_DIR};
+use crate::{oldtstate::{AppState, FocusedWindow}, KEY_INPUT_POLL_TIMEOUT_MS, MPV_LUASCRIPT_FILENAME, MPV_STATUS_IPC_FILENAME, MUSIC_DIR};
 
 pub fn get_music_dir() -> PathBuf {
     let mut d = home_dir().unwrap();

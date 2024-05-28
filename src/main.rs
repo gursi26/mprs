@@ -3,15 +3,18 @@
 mod db;
 mod mpv;
 mod spotdl;
-mod state;
 mod track_queue;
 mod utils;
+mod oldtstate;
 mod tui;
+mod ui;
+mod state;
 
 use db::TrackDB;
 use mpv::{initialize_player, next_track, play_track, player_handler, wait_for_player};
 use spotdl::{download_track, init_spotify_client, search_tracks};
-use state::AppState;
+use state::state::AppState;
+use eframe::{egui, NativeOptions};
 use tokio::runtime::Runtime;
 use tui::run;
 use std::{
@@ -43,26 +46,35 @@ const MULTIPLE_JUMP_DISTANCE: i32 = 20;
 // TODO: Switch to Unix domain sockets for IPC
 
 fn main() {
-    init_functions();
-    let mut spotify = init_spotify_client();
-    let mut app_state = Arc::new(Mutex::new(AppState::default()));
-
-    let player_update_state_arc = Arc::clone(&app_state);
-
-    let rt = Runtime::new().unwrap();
-    let player_update_handle = rt.spawn(async move {
-        player_handler(player_update_state_arc, PLAYER_HANDLER_TIMEOUT_MS).await;
-    });
-
-    run(Arc::clone(&app_state), &mut spotify).unwrap();
-    drop(player_update_handle);
-
-    let curr_rc = Arc::clone(&app_state);
-    let mut curr_app_state = curr_rc.lock().unwrap();
-
-    match &mut curr_app_state.mpv_child {
-        Some(c) => {c.kill().unwrap();},
-        None => {}
+    let app = AppState::default();
+    let native_options = NativeOptions {
+        viewport: egui::ViewportBuilder::default()
+            .with_inner_size([1920.0, 1080.0])
+            .with_min_inner_size([960.0, 540.0]),
+        ..Default::default()
     };
-    exit(0);
+    // TODO: Also replace with crate name from cargo
+    eframe::run_native("mprs", native_options, Box::new(|_| Box::new(app))).unwrap();
+    // init_functions();
+    // let mut spotify = init_spotify_client();
+    // let mut app_state = Arc::new(Mutex::new(AppState::default()));
+
+    // let player_update_state_arc = Arc::clone(&app_state);
+
+    // let rt = Runtime::new().unwrap();
+    // let player_update_handle = rt.spawn(async move {
+    //     player_handler(player_update_state_arc, PLAYER_HANDLER_TIMEOUT_MS).await;
+    // });
+
+    // run(Arc::clone(&app_state), &mut spotify).unwrap();
+    // drop(player_update_handle);
+
+    // let curr_rc = Arc::clone(&app_state);
+    // let mut curr_app_state = curr_rc.lock().unwrap();
+
+    // match &mut curr_app_state.mpv_child {
+    //     Some(c) => {c.kill().unwrap();},
+    //     None => {}
+    // };
+    // exit(0);
 }

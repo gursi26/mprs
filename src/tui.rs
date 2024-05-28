@@ -26,7 +26,7 @@ use crate::spotdl::{download_track, search_tracks};
 use crate::NUM_SEARCH_RESULTS;
 use crate::{
     mpv::{initialize_player, play_track},
-    state::{AppState, DeleteType, FocusedWindow},
+    oldtstate::{AppState, DeleteType, FocusedWindow},
     track_queue::TrackType,
     utils::{
         centered_rect, get_album_cover, get_input_key, get_keybind_string,
@@ -201,7 +201,13 @@ fn handle_user_input(app_state: &mut AppState, spotify: &mut ClientCredsSpotify)
             },
             FocusedWindow::SearchPopup => {
                 let s_idx = app_state.search_results.0.selected_mut();
-                *s_idx = Some((s_idx.unwrap() as i32 - 1).max(0) as usize);
+                let new_idx = s_idx.unwrap() as i32 - 1;
+                if new_idx < 0 {
+                    *s_idx = None;
+                    app_state.search_text_box.0 = true;
+                } else {
+                    *s_idx = Some((s_idx.unwrap() as i32 - 1) as usize);
+                }
             }
         },
         UserInput::Select => match app_state.focused_window {
@@ -928,8 +934,14 @@ fn render_search_popup(app_state: &mut AppState, frame: &mut Frame) {
             [Constraint::Length(5), Constraint::Min(0)],
         )
         .split(centered_rect);
+
+        let mut search_box = &mut app_state.search_text_box.1;
+        if app_state.search_results.0.selected().is_none() {
+            search_box.set_style(Style::new().fg(SELECT_COLOR));
+        }
+
         frame.render_widget(
-            app_state.search_text_box.1.widget(),
+            search_box.widget(),
             search_split[0].inner(&Margin {
                 horizontal: 1,
                 vertical: 1,
