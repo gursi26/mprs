@@ -45,7 +45,11 @@ const MULTIPLE_JUMP_DISTANCE: i32 = 20;
 fn main() {
     init_functions();
     let mut spotify = init_spotify_client();
-    let mut app_state = Arc::new(Mutex::new(AppState::default()));
+
+    let mut temp_app_state = AppState::default();
+    temp_app_state.track_db.add_playlist("temp-playlist".to_string());
+
+    let mut app_state = Arc::new(Mutex::new(temp_app_state));
 
     let player_update_state_arc = Arc::clone(&app_state);
 
@@ -59,6 +63,7 @@ fn main() {
 
     let curr_rc = Arc::clone(&app_state);
     let mut curr_app_state = curr_rc.lock().unwrap();
+    // curr_app_state.track_db.add_playlist("temp-playlist".to_string());
 
     match &mut curr_app_state.mpv_child {
         Some(c) => {c.kill().unwrap();},

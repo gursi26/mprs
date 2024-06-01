@@ -1,4 +1,5 @@
 use log::debug;
+use rspotify::model::playlist;
 use serde::{Deserialize, Serialize};
 use std::fs::remove_file;
 use crate::utils::{get_cache_file_path, get_metadata, get_music_dir, get_newtracks_dir};
@@ -278,6 +279,15 @@ impl TrackDB {
         let mut t_info = self.trackmap.get(&track_id).unwrap().clone();
         t_info.album = new_album;
         self.edit_track(t_info);
+    }
+
+    pub fn add_playlist(&mut self, playlist_name: String) {
+        if self.track_filter_cache.get("Playlists").unwrap().contains_key(&playlist_name) {
+            return;
+        } else {
+            self.track_filter_cache.get_mut("Playlists").unwrap().insert(playlist_name.clone(), Vec::new());
+            self.save_to_file();
+        }
     }
 
     pub fn remove_playlist(&mut self, playlist_name: String) {
