@@ -4,6 +4,7 @@ use crate::track_queue::TrackQueue;
 use crate::utils::{get_ipc_path, parse_bool};
 use crate::PREV_SAME_TRACK_TIMEOUT_S;
 use crate::utils::get_luascript_path;
+use crate::state::state::AppState;
 use std::fs::read_to_string;
 use std::process::{exit, Command};
 use std::thread::sleep;
@@ -35,48 +36,45 @@ pub fn kill_track(mpv_child: Arc<Mutex<Child>>) {
 //     play_track(app_state);
 // }
 
-// pub fn play_track(app_state: &mut AppState) {
-//     let tp_opt = app_state.get_curr_track_path();
-//     let track_path: PathBuf;
-//     if let Some(tp) = tp_opt {
-//         track_path = tp
-//     } else {
-//         return;
-//     }
+pub fn play_track(app_state: &mut AppState) {
+    let tp_opt = app_state.get_curr_track_path();
+    let track_path: PathBuf;
+    if let Some(tp) = tp_opt {
+        track_path = tp
+    } else {
+        return;
+    }
 
-//     debug!(
-//         "Now playing : {}",
-//         track_path.file_name().unwrap().to_str().unwrap()
-//     );
+    debug!(
+        "Now playing : {}",
+        track_path.file_name().unwrap().to_str().unwrap()
+    );
 
-//     if let Some(child) = &mut app_state.mpv_child {
-//         child.kill().unwrap();
-//     }
+    if let Some(child) = &mut app_state.mpv_child {
+        child.kill().unwrap();
+    }
 
-//     app_state.curr_track_info = match app_state.get_curr_track_info() {
-//         Some(t_info_ref) => Some(t_info_ref.clone()),
-//         None => None
-//     };
+    // app_state.curr_track_info = match app_state.get_curr_track_info() {
+    //     Some(t_info_ref) => Some(t_info_ref.clone()),
+    //     None => None
+    // };
 
-//     app_state.update_curr_album_cover();
-//     update(app_state, None, true);
-
-//     app_state.mpv_child = Some(
-//         Command::new("mpv")
-//             .arg(track_path.to_str().unwrap())
-//             .arg("--no-terminal")
-//             .arg("--no-audio-display")
-//             .arg("--audio-samplerate=192000")
-//             .arg("--audio-format=floatp")
-//             .arg(format!(
-//                 "--script={}",
-//                 get_luascript_path().to_str().unwrap()
-//             ))
-//             .spawn()
-//             .unwrap(),
-//     );
-//     app_state.track_clock = Stopwatch::start_new();
-// }
+    app_state.mpv_child = Some(
+        Command::new("mpv")
+            .arg(track_path.to_str().unwrap())
+            .arg("--no-terminal")
+            .arg("--no-audio-display")
+            .arg("--audio-samplerate=192000")
+            .arg("--audio-format=floatp")
+            .arg(format!(
+                "--script={}",
+                get_luascript_path().to_str().unwrap()
+            ))
+            .spawn()
+            .unwrap(),
+    );
+    app_state.track_clock = Stopwatch::start_new();
+}
 
 // pub fn next_track(app_state: &mut AppState) {
 //     app_state.track_queue.next_track();

@@ -46,10 +46,10 @@ fn main() {
     init_functions();
     let mut app = AppState::default();
     let mut client = init_spotify_client();
-    // let results = search_tracks("rising hope lisa".to_string(), 5, &mut client);
-    // download_track(&results.get(0).unwrap().get_url()).wait().unwrap();
 
-    app.trackdb.add_all_tracks(None);
+    // let results = search_tracks("deepthroat cupcakke".to_string(), 5, &mut client);
+    // download_track(&results.get(0).unwrap().get_url()).wait().unwrap();
+    // app.trackdb.add_all_tracks(None);
 
     // app.tracklist_state.items.push(TracklistItem {
     //     id: 1,

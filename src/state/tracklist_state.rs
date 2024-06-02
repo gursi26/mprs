@@ -4,6 +4,7 @@ pub struct TracklistState {
     pub items: Vec<TracklistItem>,
 }
 
+#[derive(Clone)]
 pub struct TracklistItem {
     pub id: u32,
     pub name: String,
