@@ -15,7 +15,22 @@ use lofty::tag::Accessor;
 use dirs::home_dir;
 use ratatui::layout::{Constraint, Layout};
 
-use crate::{oldtstate::{AppState, FocusedWindow}, KEY_INPUT_POLL_TIMEOUT_MS, MPV_LUASCRIPT_FILENAME, MPV_STATUS_IPC_FILENAME, MUSIC_DIR};
+use crate::{state::filter_state::F1State, KEY_INPUT_POLL_TIMEOUT_MS, MPV_LUASCRIPT_FILENAME, MPV_STATUS_IPC_FILENAME, MUSIC_DIR};
+
+pub fn duration_to_str(duration: u32) -> String {
+    let min = duration / 60;
+    let secs = duration - (min * 60);
+    format!("{}:{:0>2}", min, secs)
+}
+
+pub fn f1_state_enum_to_str(f1_state: &F1State) -> String {
+    match f1_state {
+        F1State::All => "All".to_string(),
+        F1State::Playlists => "Playlists".to_string(),
+        F1State::Artists => "Artists".to_string(),
+        F1State::Albums => "Albums".to_string(),
+    }
+}
 
 pub fn get_music_dir() -> PathBuf {
     let mut d = home_dir().unwrap();
@@ -50,7 +65,7 @@ pub fn get_luascript_path() -> PathBuf {
 pub fn init_functions() {
     init_files();
     check_spotdl_installed();
-    // setup_logger().unwrap();
+    setup_logger().unwrap();
 }
 
 pub fn init_files() {
@@ -266,17 +281,17 @@ pub fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
     .split(popup_layout[1])[1]
 }
 
-pub fn get_keybind_string(app_state: &AppState) -> String {
-    match app_state.focused_window {
-        FocusedWindow::TrackList => {
-            " (Enter): Play track | (l): Add to queue | (n): Play next | (s): Toggle shuffle | (d): Delete track | (j/k): Move up/down | (g/Shift-g): Jump to top/bottom | (Ctrl-u/d): Jump up/down ".to_string()
-        },
-        FocusedWindow::FilterOptions => {
-            "".to_string()
-        }
-        FocusedWindow::FilterFilterOptions => {
-            "".to_string()
-        }
-        _ => "".to_string()
-    }
-}
+// pub fn get_keybind_string(app_state: &AppState) -> String {
+//     match app_state.focused_window {
+//         FocusedWindow::TrackList => {
+//             " (Enter): Play track | (l): Add to queue | (n): Play next | (s): Toggle shuffle | (d): Delete track | (j/k): Move up/down | (g/Shift-g): Jump to top/bottom | (Ctrl-u/d): Jump up/down ".to_string()
+//         },
+//         FocusedWindow::FilterOptions => {
+//             "".to_string()
+//         }
+//         FocusedWindow::FilterFilterOptions => {
+//             "".to_string()
+//         }
+//         _ => "".to_string()
+//     }
+// }

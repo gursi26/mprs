@@ -1,7 +1,12 @@
 use crate::state::state::AppState;
 use crate::ui::toggle_button::toggle;
-use eframe::egui;
+use eframe::egui::{self, Ui};
 
+use super::{
+    currtrack_panel::draw_currtrack_panel, filter_panel::{draw_f1_panel, draw_f2_panel}, tracklist_panel::draw_tracklist, visualizer_panel::draw_visualizer
+};
+
+// top panel contains shuffle and light/dark mode toggles
 fn draw_top_panel(app_state: &mut AppState, ctx: &egui::Context) {
     egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
         egui::menu::bar(ui, |ui| {
@@ -19,6 +24,7 @@ fn draw_top_panel(app_state: &mut AppState, ctx: &egui::Context) {
     });
 }
 
+// bottom panel contains notification screen
 fn draw_bottom_panel(app_state: &AppState, ctx: &egui::Context) {
     egui::TopBottomPanel::bottom("bottom_panel")
         .resizable(false)
@@ -31,41 +37,30 @@ fn draw_bottom_panel(app_state: &AppState, ctx: &egui::Context) {
         });
 }
 
+fn draw_left_panel(app_state: &mut AppState, ctx: &egui::Context) {
+    egui::SidePanel::left("left_panel")
+        .resizable(false)
+        // TODO: Set this width to a fraction of the screen size
+        .min_width(350.0)
+        .show(ctx, |ui| {
+            draw_f1_panel(app_state, ui);
+            draw_f2_panel(app_state, ui);
+            draw_currtrack_panel(app_state, ui);
+        });
+}
+
+fn draw_main_panel(app_state: &mut AppState, ctx: &egui::Context) {
+    egui::CentralPanel::default().show(ctx, |ui| {
+        draw_visualizer(app_state, ui);
+        draw_tracklist(app_state, ui);
+    });
+}
+
 impl eframe::App for AppState {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         draw_top_panel(self, ctx);
         draw_bottom_panel(self, ctx);
-
-        egui::SidePanel::left("left_panel")
-            .resizable(false)
-            // TODO: Set this width to a fraction of the screen size
-            .min_width(250.0)
-            .show(ctx, |ui| {
-                egui::TopBottomPanel::top("top_left_panel")
-                    // TODO: Same width thing
-                    .min_height(150.0)
-                    .resizable(false)
-                    .show_inside(ui, |ui| ui.heading("Top left panel"));
-
-                egui::TopBottomPanel::bottom("bottom_left_panel")
-                    // TODO: Same width thing
-                    .min_height(350.0)
-                    .resizable(false)
-                    .show_inside(ui, |ui| ui.heading("bottom left panel"));
-
-                egui::CentralPanel::default().show_inside(ui, |ui| ui.heading("Bottom left panel"));
-                // egui::ScrollArea::vertical().show(ui, |ui| {});
-            });
-
-        egui::CentralPanel::default().show(ctx, |ui| {
-            egui::TopBottomPanel::bottom("visualizer_panel")
-                // .resizable(true)
-                // .default_height(200.0)
-                // .height_range(200.0..=500.0)
-                .min_height(300.0)
-                .show_inside(ui, |ui| ui.heading("Visualizer panel"));
-
-            egui::CentralPanel::default().show_inside(ui, |ui| ui.heading("Main track panel"))
-        });
+        draw_left_panel(self, ctx);
+        draw_main_panel(self, ctx)
     }
 }

@@ -5,18 +5,15 @@ mod mpv;
 mod spotdl;
 mod track_queue;
 mod utils;
-mod oldtstate;
-mod tui;
 mod ui;
 mod state;
 
 use db::TrackDB;
-use mpv::{initialize_player, next_track, play_track, player_handler, wait_for_player};
+// use mpv::{initialize_player, next_track, play_track, player_handler, wait_for_player};
 use spotdl::{download_track, init_spotify_client, search_tracks};
-use state::state::AppState;
+use state::{state::AppState, tracklist_state::TracklistItem};
 use eframe::{egui, NativeOptions};
 use tokio::runtime::Runtime;
-use tui::run;
 use std::{
     fs::create_dir_all,
     path::PathBuf,
@@ -46,7 +43,51 @@ const MULTIPLE_JUMP_DISTANCE: i32 = 20;
 // TODO: Switch to Unix domain sockets for IPC
 
 fn main() {
-    let app = AppState::default();
+    init_functions();
+    let mut app = AppState::default();
+    let mut client = init_spotify_client();
+    // let results = search_tracks("rising hope lisa".to_string(), 5, &mut client);
+    // download_track(&results.get(0).unwrap().get_url()).wait().unwrap();
+
+    app.trackdb.add_all_tracks(None);
+
+    // app.tracklist_state.items.push(TracklistItem {
+    //     id: 1,
+    //     name: "Track 1 name".to_string(),
+    //     artist: "Artist 1 name".to_string(),
+    //     album: "Album 1 name".to_string(),
+    //     duration: "10:23".to_string()
+    // });
+    // app.tracklist_state.items.push(TracklistItem {
+    //     id: 1,
+    //     name: "Track 1 name".to_string(),
+    //     artist: "Artist 1 name".to_string(),
+    //     album: "Album 1 name".to_string(),
+    //     duration: "10:23".to_string()
+    // });
+    // app.tracklist_state.items.push(TracklistItem {
+    //     id: 1,
+    //     name: "Track 1 name".to_string(),
+    //     artist: "Artist 1 name".to_string(),
+    //     album: "Album 1 name".to_string(),
+    //     duration: "10:23".to_string()
+    // });
+    // app.tracklist_state.items.push(TracklistItem {
+    //     id: 1,
+    //     name: "Track 1 name".to_string(),
+    //     artist: "Artist 1 name".to_string(),
+    //     album: "Album 1 name".to_string(),
+    //     duration: "10:23".to_string()
+    // });
+    // app.tracklist_state.items.push(TracklistItem {
+    //     id: 1,
+    //     name: "Track 1 name".to_string(),
+    //     artist: "Artist 1 name".to_string(),
+    //     album: "Album 1 name".to_string(),
+    //     duration: "10:23".to_string()
+    // });
+    //
+
     let native_options = NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([1920.0, 1080.0])
