@@ -11,7 +11,7 @@ use std::fs::File;
 
 use crate::utils::{get_music_dir, get_newtracks_dir};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SearchResult {
     pub name: String,
     pub artists: Vec<String>,

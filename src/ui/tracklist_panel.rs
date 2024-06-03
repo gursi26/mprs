@@ -19,9 +19,9 @@ fn table_ui(app_state: &mut AppState, ui: &mut egui::Ui) {
         .resizable(false)
         .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
         .column(Column::auto().at_least(20.0))
-        .column(Column::remainder().at_least(600.0))
-        .column(Column::remainder().at_least(200.0).resizable(false))
-        .column(Column::remainder().at_least(200.0).resizable(false))
+        .column(Column::remainder().at_least(600.0).at_most(600.0).clip(true))
+        .column(Column::remainder().at_least(200.0).at_most(200.0).resizable(false).clip(true))
+        .column(Column::remainder().at_least(200.0).at_most(200.0).resizable(false).clip(true))
         .column(Column::remainder())
         .min_scrolled_height(0.0)
         .max_scroll_height(available_height);
@@ -47,14 +47,18 @@ fn table_ui(app_state: &mut AppState, ui: &mut egui::Ui) {
         })
         .body(|mut body| {
             // TODO: Put this in a constant?
-            let row_height = 18.0;
+            let row_height = 30.0;
             for row_index in 0..(app_state.tracklist_state.items.len()) {
                 let curr_row = app_state
                     .tracklist_state
                     .items
-                    .get(row_index)
-                    .unwrap()
-                    .clone();
+                    .get(row_index);
+
+                if let None = curr_row {
+                    continue;
+                }
+                let curr_row = curr_row.unwrap().clone();
+
                 body.row(row_height, |mut row| {
                     if let Some(t_id) = app_state.trackqueue.get_curr_track() {
                         if curr_row.id == t_id {
@@ -86,7 +90,10 @@ fn table_ui(app_state: &mut AppState, ui: &mut egui::Ui) {
                         ui.label(&curr_row.duration);
                     });
 
-                    if row.response().clicked() {
+                    let response = row.response();
+                    if response.clicked() {
+                        app_state.trackqueue.empty_reg_queue();
+
                         let curr_track_ids = app_state
                             .trackdb
                             .track_filter_cache
@@ -110,6 +117,24 @@ fn table_ui(app_state: &mut AppState, ui: &mut egui::Ui) {
 
                         play_track(app_state);
                     }
+
+                    response.context_menu(|ui| {
+                        if ui.button("Play next").clicked() {
+                            app_state.trackqueue.play_next(curr_row.id);
+                            ui.close_menu();
+                        }
+
+                        if ui.button("Add to queue").clicked() {
+                            app_state.trackqueue.add_to_queue(curr_row.id);
+                            ui.close_menu();
+                        }
+
+                        if ui.button("Delete track").clicked() {
+                            app_state.trackdb.remove_track(curr_row.id, Some(true));
+                            app_state.tracklist_state.remove_with_id(curr_row.id);
+                            ui.close_menu();
+                        }
+                    });
                 });
             }
         });

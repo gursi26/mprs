@@ -1,7 +1,7 @@
 use log::debug;
 use stopwatch::Stopwatch;
 use crate::track_queue::TrackQueue;
-use crate::utils::{get_ipc_path, parse_bool};
+use crate::utils::{get_album_cover, get_ipc_path, parse_bool};
 use crate::PREV_SAME_TRACK_TIMEOUT_S;
 use crate::utils::get_luascript_path;
 use crate::state::state::AppState;
@@ -54,10 +54,13 @@ pub fn play_track(app_state: &mut AppState) {
         child.kill().unwrap();
     }
 
-    // app_state.curr_track_info = match app_state.get_curr_track_info() {
-    //     Some(t_info_ref) => Some(t_info_ref.clone()),
-    //     None => None
-    // };
+    app_state.curr_trackinfo = match app_state.get_curr_track_info() {
+        Some(t_info_ref) => Some(t_info_ref.clone()),
+        None => None
+    };
+
+    let v = get_album_cover(&app_state.get_curr_track_path().unwrap());
+    app_state.curr_albumcover = Some(Arc::from(v));
 
     app_state.mpv_child = Some(
         Command::new("mpv")
@@ -74,6 +77,10 @@ pub fn play_track(app_state: &mut AppState) {
             .unwrap(),
     );
     app_state.track_clock = Stopwatch::start_new();
+
+    if let Some(ctx) = &app_state.ctx {
+        ctx.request_repaint();
+    }
 }
 
 pub fn next_track(app_state: &mut AppState) {

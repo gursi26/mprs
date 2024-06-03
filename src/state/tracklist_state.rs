@@ -38,4 +38,8 @@ impl TracklistState {
             duration: duration_to_str(duration)
         });
     }
+
+    pub fn remove_with_id(&mut self, remove_id: u32) {
+        self.items.retain(|x| x.id != remove_id);
+    }
 }

@@ -1,8 +1,8 @@
+use rspotify::ClientCredsSpotify;
 use stopwatch::Stopwatch;
 
 use crate::{
-    db::{TrackDB, TrackInfo},
-    track_queue::TrackQueue,
+    db::{TrackDB, TrackInfo}, spotdl::{init_spotify_client, SearchResult}, track_queue::TrackQueue
 };
 use std::{path::PathBuf, process::Child, sync::{Arc, Mutex}};
 
@@ -11,13 +11,13 @@ use super::{
 };
 
 pub struct AppStateWrapper {
-    pub app_state: Arc<Mutex<AppState>>
+    pub app_state: Arc<Mutex<AppState>>,
 }
 
 impl Default for AppStateWrapper {
     fn default() -> Self {
         Self {
-            app_state: Arc::new(Mutex::new(AppState::default()))
+            app_state: Arc::new(Mutex::new(AppState::default())),
         }
     }
 }
@@ -36,12 +36,21 @@ pub struct AppState {
     pub trackqueue: TrackQueue,
     pub track_clock: Stopwatch,
     pub prev_state: PrevState,
+
+    pub curr_trackinfo: Option<TrackInfo>,
+    pub curr_albumcover: Option<Arc<[u8]>>,
+    pub ctx: Option<eframe::egui::Context>,
+    pub new_playlist_name: String,
+    pub new_track_search_term: String,
+    pub spt_creds: ClientCredsSpotify,
+    pub search_results: Option<Vec<SearchResult>>
 }
 
 
 pub struct PrevState {
     pub f1_state: F1State,
     pub f2_state: (F1State, String),
+    pub trackid: Option<u32>
 }
 
 impl Default for AppState {
@@ -59,6 +68,7 @@ impl Default for AppState {
         let prev_state = PrevState {
             f1_state: F1State::Playlists,
             f2_state: (F1State::All, "All".to_string()),
+            trackid: None
         };
 
         Self {
@@ -74,6 +84,13 @@ impl Default for AppState {
             trackqueue: TrackQueue::new(),
             track_clock: Stopwatch::new(),
             prev_state,
+            curr_trackinfo: None,
+            curr_albumcover: None,
+            ctx: None,
+            new_playlist_name: String::new(),
+            new_track_search_term: String::new(),
+            spt_creds: init_spotify_client(),
+            search_results: None
         }
     }
 }

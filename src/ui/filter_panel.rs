@@ -72,7 +72,7 @@ pub fn draw_f2_panel(app_state: &mut AppState, ui: &mut Ui) {
     }
 
     egui::CentralPanel::default().show_inside(ui, |ui| {
-        ui.vertical(|ui| {
+        egui::ScrollArea::vertical().show(ui, |ui| {
             for s in f2_values.iter() {
                 let v = (*s).clone();
                 ui.selectable_value(&mut app_state.f2_state, v.clone(), v);

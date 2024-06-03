@@ -222,6 +222,10 @@ impl TrackDB {
         let p = playlist_map.get_mut(&t_info.playlist).unwrap();
         p.retain(|&x| x != t_id);
 
+        let all_map = self.track_filter_cache.get_mut(&F1State::All).unwrap();
+        let p = all_map.get_mut("All").unwrap();
+        p.retain(|&x| x != t_id);
+
         let album_map = self.track_filter_cache.get_mut(&F1State::Albums).unwrap();
         let p = album_map.get_mut(&t_info.album.clone().unwrap_or("None".to_string())).unwrap();
         p.retain(|&x| x != t_id);

@@ -29,4 +29,4 @@ ratatui-image = "1.0.0"
 rand = "0.8.5"
 tui-textarea = "0.4.0"
 eframe = "0.27.2"
-egui_extras = "0.27.2"
+egui_extras = { version = "0.27.2", features = ["all_loaders"] }
