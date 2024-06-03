@@ -9,9 +9,10 @@ mod ui;
 mod state;
 
 use db::TrackDB;
+use mpv::player_handler;
 // use mpv::{initialize_player, next_track, play_track, player_handler, wait_for_player};
 use spotdl::{download_track, init_spotify_client, search_tracks};
-use state::{state::AppState, tracklist_state::TracklistItem};
+use state::{state::{AppState, AppStateWrapper}, tracklist_state::TracklistItem};
 use eframe::{egui, NativeOptions};
 use tokio::runtime::Runtime;
 use std::{
@@ -40,54 +41,34 @@ const NOTIFICATION_TIMEOUT_S: u64 = 3;
 const NUM_SEARCH_RESULTS: u32 = 10;
 const MULTIPLE_JUMP_DISTANCE: i32 = 20;
 
-// TODO: Switch to Unix domain sockets for IPC
+// TODO: Fix bug with same track replaying when next pressed
 
 fn main() {
     init_functions();
-    let mut app = AppState::default();
     let mut client = init_spotify_client();
+    let mut app_inner = AppState::default();
 
-    // let results = search_tracks("deepthroat cupcakke".to_string(), 5, &mut client);
+    // let results = search_tracks("visit to hida".to_string(), 5, &mut client);
     // download_track(&results.get(0).unwrap().get_url()).wait().unwrap();
-    // app.trackdb.add_all_tracks(None);
+    // app_inner.trackdb.add_all_tracks(None);
 
-    // app.tracklist_state.items.push(TracklistItem {
-    //     id: 1,
-    //     name: "Track 1 name".to_string(),
-    //     artist: "Artist 1 name".to_string(),
-    //     album: "Album 1 name".to_string(),
-    //     duration: "10:23".to_string()
-    // });
-    // app.tracklist_state.items.push(TracklistItem {
-    //     id: 1,
-    //     name: "Track 1 name".to_string(),
-    //     artist: "Artist 1 name".to_string(),
-    //     album: "Album 1 name".to_string(),
-    //     duration: "10:23".to_string()
-    // });
-    // app.tracklist_state.items.push(TracklistItem {
-    //     id: 1,
-    //     name: "Track 1 name".to_string(),
-    //     artist: "Artist 1 name".to_string(),
-    //     album: "Album 1 name".to_string(),
-    //     duration: "10:23".to_string()
-    // });
-    // app.tracklist_state.items.push(TracklistItem {
-    //     id: 1,
-    //     name: "Track 1 name".to_string(),
-    //     artist: "Artist 1 name".to_string(),
-    //     album: "Album 1 name".to_string(),
-    //     duration: "10:23".to_string()
-    // });
-    // app.tracklist_state.items.push(TracklistItem {
-    //     id: 1,
-    //     name: "Track 1 name".to_string(),
-    //     artist: "Artist 1 name".to_string(),
-    //     album: "Album 1 name".to_string(),
-    //     duration: "10:23".to_string()
-    // });
-    //
+    // let results = search_tracks("dream lantern".to_string(), 5, &mut client);
+    // download_track(&results.get(0).unwrap().get_url()).wait().unwrap();
+    // app_inner.trackdb.add_all_tracks(None);
 
+    // let results = search_tracks("sparkle".to_string(), 5, &mut client);
+    // download_track(&results.get(0).unwrap().get_url()).wait().unwrap();
+    // app_inner.trackdb.add_all_tracks(None);
+
+    let mut app = AppStateWrapper { app_state: Arc::new(Mutex::new(app_inner)) };
+    
+    let app_state_rc = Arc::clone(&app.app_state);
+    
+    let rt = Runtime::new().unwrap();
+    let player_update_handle = rt.spawn(async move {
+        player_handler(app_state_rc, PLAYER_HANDLER_TIMEOUT_MS).await;
+    });
+    
     let native_options = NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([1920.0, 1080.0])
@@ -102,10 +83,6 @@ fn main() {
 
     // let player_update_state_arc = Arc::clone(&app_state);
 
-    // let rt = Runtime::new().unwrap();
-    // let player_update_handle = rt.spawn(async move {
-    //     player_handler(player_update_state_arc, PLAYER_HANDLER_TIMEOUT_MS).await;
-    // });
 
     // run(Arc::clone(&app_state), &mut spotify).unwrap();
     // drop(player_update_handle);

@@ -1,4 +1,8 @@
-use crate::state::state::AppState;
+use std::process::exit;
+use std::sync::Arc;
+
+use crate::mpv::kill_track;
+use crate::state::state::{AppState, AppStateWrapper};
 use crate::ui::toggle_button::toggle;
 use eframe::egui::{self, Ui};
 
@@ -56,11 +60,28 @@ fn draw_main_panel(app_state: &mut AppState, ctx: &egui::Context) {
     });
 }
 
-impl eframe::App for AppState {
+impl eframe::App for AppStateWrapper {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        draw_top_panel(self, ctx);
-        draw_bottom_panel(self, ctx);
-        draw_left_panel(self, ctx);
-        draw_main_panel(self, ctx)
+        let app_state_clone = Arc::clone(&self.app_state);
+        let mut app_state_g = app_state_clone.lock().unwrap();
+
+        draw_top_panel(&mut app_state_g, ctx);
+        draw_bottom_panel(&mut app_state_g, ctx);
+        draw_left_panel(&mut app_state_g, ctx);
+        draw_main_panel(&mut app_state_g, ctx);
+    }
+
+    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+        let app_state_clone = Arc::clone(&self.app_state);
+        let mut app_state_g = app_state_clone.lock().unwrap();
+        match &mut app_state_g.mpv_child {
+            Some(mpv_child) => {
+                mpv_child.kill().unwrap();
+            }
+            None => {
+            }
+        };
+
+        exit(0);
     }
 }

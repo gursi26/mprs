@@ -1,5 +1,7 @@
-use crate::{mpv::play_track, state::state::AppState};
+use std::sync::Arc;
+
 use crate::ui::toggle_button::toggle;
+use crate::{mpv::play_track, state::state::AppState};
 use eframe::egui::{self, Ui};
 use egui_extras::{Column, TableBuilder};
 
@@ -47,13 +49,30 @@ fn table_ui(app_state: &mut AppState, ui: &mut egui::Ui) {
             // TODO: Put this in a constant?
             let row_height = 18.0;
             for row_index in 0..(app_state.tracklist_state.items.len()) {
-                let curr_row = app_state.tracklist_state.items.get(row_index).unwrap().clone();
+                let curr_row = app_state
+                    .tracklist_state
+                    .items
+                    .get(row_index)
+                    .unwrap()
+                    .clone();
                 body.row(row_height, |mut row| {
-                    // use this to highlight row for currently playing track
-                    // row.set_selected(self.selection.contains(&row_index));
-                    row.col(|ui| {
-                        ui.label((row_index + 1).to_string());
-                    });
+                    if let Some(t_id) = app_state.trackqueue.get_curr_track() {
+                        if curr_row.id == t_id {
+                            row.set_selected(true);
+                            row.col(|ui| {
+                                ui.label("▶");
+                            });
+                        } else {
+                            row.col(|ui| {
+                                ui.label((row_index + 1).to_string());
+                            });
+                        }
+                    } else {
+                        row.col(|ui| {
+                            ui.label((row_index + 1).to_string());
+                        });
+                    }
+
                     row.col(|ui| {
                         ui.label(curr_row.name);
                     });
@@ -68,12 +87,30 @@ fn table_ui(app_state: &mut AppState, ui: &mut egui::Ui) {
                     });
 
                     if row.response().clicked() {
-                        app_state.trackqueue.add_to_queue(curr_row.id);
+                        let curr_track_ids = app_state
+                            .trackdb
+                            .track_filter_cache
+                            .get(&app_state.f1_state)
+                            .unwrap()
+                            .get(&app_state.f2_state)
+                            .unwrap();
+
+                        for tid in curr_track_ids.iter() {
+                            if *tid != curr_row.id {
+                                app_state.trackqueue.add_to_reg_queue(tid.clone());
+                            }
+                        }
+
+                        if app_state.shuffle {
+                            app_state.trackqueue.shuffle_reg_queue();
+                        }
+
+                        app_state.trackqueue.prepend_to_reg_queue(curr_row.id);
                         app_state.trackqueue.next_track();
-                        play_track(app_state)
+
+                        play_track(app_state);
                     }
                 });
             }
-
         });
 }
