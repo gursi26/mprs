@@ -37,7 +37,12 @@ const NUM_SEARCH_RESULTS: u32 = 10;
 const MULTIPLE_JUMP_DISTANCE: i32 = 20;
 
 // TODO: Unicode font rendering
-// TODO: Handle case where user deletes currently playing track
+// TODO: Handle case where user deletes currently playing track (do not allow deletion of current
+// track)
+// TODO: Allow text in table to be clickable
+// TODO: Fix f1 and f2 panel buttons to be table rows instead. Make text clickable also
+// TODO: Fix player hanging during download
+// TODO: Fix newly downloaded track not showing up until playlist is switched
 
 fn main() {
     init_functions();

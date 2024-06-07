@@ -4,7 +4,7 @@ use stopwatch::Stopwatch;
 use crate::{
     db::{TrackDB, TrackInfo}, spotdl::{init_spotify_client, SearchResult}, track_queue::TrackQueue
 };
-use std::{path::PathBuf, process::Child, sync::{Arc, Mutex}};
+use std::{collections::HashMap, path::PathBuf, process::Child, sync::{Arc, Mutex}};
 
 use super::{
     filter_state::F1State, notification_state::NotificationState, tracklist_state::TracklistState,
@@ -43,14 +43,17 @@ pub struct AppState {
     pub new_playlist_name: String,
     pub new_track_search_term: String,
     pub spt_creds: ClientCredsSpotify,
-    pub search_results: Option<Vec<SearchResult>>
+    pub search_results: Option<Vec<SearchResult>>,
+    pub selected_result_urls: HashMap<usize, String>,
+    pub pending_download_childs: (String, Vec<Child>)
 }
 
 
 pub struct PrevState {
     pub f1_state: F1State,
     pub f2_state: (F1State, String),
-    pub trackid: Option<u32>
+    pub trackid: Option<u32>,
+    pub shuffle: bool,
 }
 
 impl Default for AppState {
@@ -68,7 +71,8 @@ impl Default for AppState {
         let prev_state = PrevState {
             f1_state: F1State::Playlists,
             f2_state: (F1State::All, "All".to_string()),
-            trackid: None
+            trackid: None,
+            shuffle: false
         };
 
         Self {
@@ -90,7 +94,9 @@ impl Default for AppState {
             new_playlist_name: String::new(),
             new_track_search_term: String::new(),
             spt_creds: init_spotify_client(),
-            search_results: None
+            search_results: None,
+            selected_result_urls: HashMap::new(),
+            pending_download_childs: (String::new(), Vec::new())
         }
     }
 }
@@ -99,8 +105,11 @@ impl AppState {
     pub fn get_curr_track_path(&self) -> Option<PathBuf> {
         let curr_trackid = self.trackqueue.get_curr_track();
         if let Some(id) = curr_trackid {
-            let tinfo = self.trackdb.trackmap.get(&id).unwrap();
-            Some(tinfo.get_file_path())
+            if let Some(tinfo) = self.trackdb.trackmap.get(&id) {
+                Some(tinfo.get_file_path())
+            } else {
+                None
+            }
         } else {
             None
         }

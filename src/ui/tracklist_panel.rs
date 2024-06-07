@@ -129,10 +129,18 @@ fn table_ui(app_state: &mut AppState, ui: &mut egui::Ui) {
                             ui.close_menu();
                         }
 
-                        if ui.button("Delete track").clicked() {
-                            app_state.trackdb.remove_track(curr_row.id, Some(true));
-                            app_state.tracklist_state.remove_with_id(curr_row.id);
-                            ui.close_menu();
+                        if let Some(tid) = app_state.trackqueue.get_curr_track() {
+                            if curr_row.id != tid {
+                                if ui.button("Delete track").clicked() {
+                                    ui.close_menu();
+                                    app_state.trackdb.remove_track(curr_row.id, Some(true));
+                                    app_state.tracklist_state.remove_with_id(curr_row.id);
+
+                                    app_state.trackqueue.reg_queue.retain(|x| *x != curr_row.id);
+                                    app_state.trackqueue.exp_queue.retain(|x| *x != curr_row.id);
+                                    app_state.trackqueue.played_tracks.retain(|x| *x != curr_row.id);
+                                }
+                            }
                         }
                     });
                 });

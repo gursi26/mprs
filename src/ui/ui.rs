@@ -130,6 +130,23 @@ fn display_search_results_popup(app_state: &mut AppState, ctx: &egui::Context) {
             if ui.button("Close").clicked() {
                 app_state.search_results = None;
             }
+
+            if ui.button("Download").clicked() {
+                app_state.search_results = None;
+                app_state.pending_download_childs.0 = app_state.f2_state.clone();
+                for v in app_state.selected_result_urls.values() {
+                    let child = download_track(v);
+                    app_state.pending_download_childs.1.push(child);
+                }
+                app_state.selected_result_urls.clear();
+                app_state.notification.set_message(
+                    format!(
+                        "Downloading tracks, {} remaining...",
+                        app_state.pending_download_childs.1.len()
+                    ),
+                    None,
+                );
+            }
             draw_search_result_table(ui, app_state);
         });
 }
@@ -141,9 +158,26 @@ fn draw_search_result_table(ui: &mut Ui, app_state: &mut AppState) {
         .resizable(false)
         .cell_layout(egui::Layout::left_to_right(egui::Align::Center))
         .column(Column::auto().at_least(20.0))
-        .column(Column::remainder().at_least(600.0).at_most(600.0).clip(true))
-        .column(Column::remainder().at_least(200.0).at_most(200.0).resizable(false).clip(true))
-        .column(Column::remainder().at_least(200.0).at_most(200.0).resizable(false).clip(true))
+        .column(
+            Column::remainder()
+                .at_least(600.0)
+                .at_most(600.0)
+                .clip(true),
+        )
+        .column(
+            Column::remainder()
+                .at_least(200.0)
+                .at_most(200.0)
+                .resizable(false)
+                .clip(true),
+        )
+        .column(
+            Column::remainder()
+                .at_least(200.0)
+                .at_most(200.0)
+                .resizable(false)
+                .clip(true),
+        )
         .column(Column::remainder())
         .min_scrolled_height(0.0)
         .max_scroll_height(available_height);
@@ -184,6 +218,10 @@ fn draw_search_result_table(ui: &mut Ui, app_state: &mut AppState) {
                 let curr_row = curr_row.unwrap();
 
                 body.row(row_height, |mut row| {
+                    if app_state.selected_result_urls.contains_key(&row_index) {
+                        row.set_selected(true);
+                    }
+
                     row.col(|ui| {
                         ui.label((row_index + 1).to_string());
                     });
@@ -202,18 +240,81 @@ fn draw_search_result_table(ui: &mut Ui, app_state: &mut AppState) {
 
                     let response = row.response();
                     if response.clicked() {
-                        // TODO: Move this bit outside so player does not hang when download in
-                        // progress
-                        // TODO: Figure out how to live update tracklist after download instead of
-                        // having to switch and switch back to curr playlist
-                        app_state.search_results = None;
-                        download_track(&curr_row.get_url()).wait().unwrap();
-                        app_state.trackdb.add_all_tracks(Some(app_state.f2_state.clone()));
-                        app_state.ctx.clone().unwrap().request_repaint();
+                        if app_state.selected_result_urls.contains_key(&row_index) {
+                            app_state.selected_result_urls.remove_entry(&row_index);
+                        } else {
+                            app_state
+                                .selected_result_urls
+                                .insert(row_index, curr_row.get_url());
+                        }
                     }
                 });
             }
         });
+}
+
+pub fn check_download_progress(app_state: &mut AppState) {
+    let mut remove_idxs = Vec::new();
+    for (i, c) in app_state.pending_download_childs.1.iter_mut().enumerate() {
+        if c.try_wait().unwrap().is_some() {
+            remove_idxs.push(i);
+        }
+    }
+
+    for idx in remove_idxs.into_iter().rev() {
+        app_state.pending_download_childs.1.remove(idx);
+    }
+
+    if app_state.pending_download_childs.1.len() > 0 {
+        app_state.notification.set_message(
+            format!(
+                "Downloading tracks, {} remaining...",
+                app_state.pending_download_childs.1.len()
+            ),
+            None,
+        );
+    } else {
+        if app_state.pending_download_childs.0.len() > 0 {
+            app_state
+                .notification
+                .set_message("All tracks downloaded".to_string(), Some(3));
+            app_state
+                .trackdb
+                .add_all_tracks(Some(app_state.pending_download_childs.0.clone()));
+            app_state.pending_download_childs = (String::new(), Vec::new());
+
+            let ids = app_state
+                .trackdb
+                .track_filter_cache
+                .get(&app_state.f1_state)
+                .unwrap()
+                .get(&app_state.f2_state)
+                .unwrap();
+
+            let present_ids = app_state
+                .tracklist_state
+                .items
+                .iter()
+                .map(|x| x.id)
+                .collect::<Vec<u32>>();
+            if ids.len() != present_ids.len() {
+                for id in ids.iter() {
+                    if !present_ids.contains(id) {
+                        let tinfo = app_state.trackdb.trackmap.get(id).unwrap();
+                        app_state.tracklist_state.add_item(
+                            id.clone(),
+                            tinfo.name.clone(),
+                            tinfo.artists.clone().unwrap_or(Vec::new()),
+                            tinfo.album.clone().unwrap_or(String::new()),
+                            tinfo.duration,
+                        );
+                    }
+                }
+            }
+
+            app_state.ctx.clone().unwrap().request_repaint();
+        }
+    }
 }
 
 impl eframe::App for AppStateWrapper {
@@ -233,6 +334,13 @@ impl eframe::App for AppStateWrapper {
         draw_left_panel(&mut app_state_g, ctx);
         draw_main_panel(&mut app_state_g, ctx);
         display_search_results_popup(&mut app_state_g, ctx);
+
+        check_download_progress(&mut app_state_g);
+
+        if app_state_g.shuffle != app_state_g.prev_state.shuffle {
+            app_state_g.trackqueue.shuffle_reg_queue();
+            app_state_g.prev_state.shuffle = app_state_g.shuffle;
+        }
     }
 
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
