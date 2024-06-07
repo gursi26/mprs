@@ -330,8 +330,8 @@ impl eframe::App for AppStateWrapper {
         }
 
         draw_top_panel(&mut app_state_g, ctx);
-        draw_bottom_panel(&mut app_state_g, ctx);
         draw_left_panel(&mut app_state_g, ctx);
+        draw_bottom_panel(&mut app_state_g, ctx);
         draw_main_panel(&mut app_state_g, ctx);
         display_search_results_popup(&mut app_state_g, ctx);
 
@@ -341,6 +341,8 @@ impl eframe::App for AppStateWrapper {
             app_state_g.trackqueue.shuffle_reg_queue();
             app_state_g.prev_state.shuffle = app_state_g.shuffle;
         }
+
+        app_state_g.notification.update_message();
     }
 
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {

@@ -9,6 +9,11 @@ use eframe::egui::{self, ImageSource, ProgressBar, Ui};
 pub fn draw_currtrack_panel(app_state: &AppState, ui: &mut Ui) {
     let p = app_state.get_curr_track_path();
     if p.is_none() {
+        egui::TopBottomPanel::bottom("bottom_left_panel")
+            .min_height(360.0)
+            .max_height(360.0)
+            .resizable(false)
+            .show_inside(ui, |ui| {});
         return;
     }
     let p = p.unwrap();
@@ -16,7 +21,8 @@ pub fn draw_currtrack_panel(app_state: &AppState, ui: &mut Ui) {
     let uri_str = format!("{}.jpg", app_state.curr_trackinfo.clone().unwrap().name);
 
     egui::TopBottomPanel::bottom("bottom_left_panel")
-        .min_height(350.0)
+        .min_height(360.0)
+        .max_height(360.0)
         .resizable(false)
         .show_inside(ui, |ui| {
             ui.add_space(15.0);
@@ -35,19 +41,24 @@ pub fn draw_currtrack_panel(app_state: &AppState, ui: &mut Ui) {
 
             let elapsed_time = app_state.track_clock.elapsed().as_secs_f32();
             let total_time = s.duration as f32;
-            let display_text = format!("{}/{}", duration_to_str(elapsed_time as u32), duration_to_str(total_time as u32));
+            let display_text = format!(
+                "{}/{}",
+                duration_to_str(elapsed_time as u32),
+                duration_to_str(total_time as u32)
+            );
 
             ui.add(ProgressBar::new(elapsed_time / total_time).text(display_text));
 
             ui.add_space(5.0);
-            ui.strong(&s.name);
+            ui.add(egui::Label::new(egui::RichText::new(&s.name).strong()).truncate(true));
+            // ui.strong(&s.name);
 
             if let Some(artist_names) = s.artists {
-                ui.label(artist_names.join(", "));
+                ui.add(egui::Label::new(artist_names.join(", ")).truncate(true));
             }
 
             if let Some(album_name) = s.album {
-                ui.label(album_name);
+                ui.add(egui::Label::new(album_name).truncate(true));
             }
         });
 }

@@ -78,16 +78,16 @@ fn table_ui(app_state: &mut AppState, ui: &mut egui::Ui) {
                     }
 
                     row.col(|ui| {
-                        ui.label(curr_row.name);
+                        ui.add(egui::Label::new(&curr_row.name).selectable(false));
                     });
                     row.col(|ui| {
-                        ui.label(&curr_row.artist);
+                        ui.add(egui::Label::new(&curr_row.artist).selectable(false));
                     });
                     row.col(|ui| {
-                        ui.label(&curr_row.album);
+                        ui.add(egui::Label::new(&curr_row.album).selectable(false));
                     });
                     row.col(|ui| {
-                        ui.label(&curr_row.duration);
+                        ui.add(egui::Label::new(&curr_row.duration).selectable(false));
                     });
 
                     let response = row.response();
