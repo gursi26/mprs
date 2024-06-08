@@ -1,5 +1,6 @@
 use crate::state::filter_state::F1State;
 use crate::ui::toggle_button::toggle;
+use crate::F2_PANEL_ROW_HEIGHT;
 use crate::{state::state::AppState, utils::f1_state_enum_to_str};
 use eframe::egui::{self, Ui};
 use egui_extras::{Column, TableBuilder};
@@ -75,7 +76,8 @@ pub fn draw_f2_panel(app_state: &mut AppState, ui: &mut Ui) {
         .get(&app_state.f1_state)
         .unwrap()
         .keys()
-        .collect::<Vec<&String>>();
+        .map(|x| x.clone())
+        .collect::<Vec<String>>();
 
     if app_state.f1_state != app_state.prev_state.f2_state.0
         || app_state.f2_state != app_state.prev_state.f2_state.1
@@ -118,30 +120,49 @@ pub fn draw_f2_panel(app_state: &mut AppState, ui: &mut Ui) {
             .max_scroll_height(350.0);
 
         table = table.sense(egui::Sense::click());
-        table
-            .body(|mut body| {
-                let row_height = 20.0;
-                for curr_row in f2_values.iter() {
-                    body.row(row_height, |mut row| {
-                        if app_state.f2_state == **curr_row {
-                            row.set_selected(true);
-                        }
-                        row.col(|ui| {
-                            ui.add(egui::Label::new(*curr_row).selectable(false));
-                        });
-
-                        if row.response().clicked() {
-                            app_state.f2_state = (*curr_row).clone();
-                        }
+        table.body(|mut body| {
+            for curr_row in f2_values.iter() {
+                body.row(F2_PANEL_ROW_HEIGHT, |mut row| {
+                    if app_state.f2_state == **curr_row {
+                        row.set_selected(true);
+                    }
+                    row.col(|ui| {
+                        ui.add(egui::Label::new(curr_row).selectable(false));
                     });
-                }
-            });
 
-        // egui::ScrollArea::vertical().show(ui, |ui| {
-        //     for s in f2_values.iter() {
-        //         let v = (*s).clone();
-        //         ui.selectable_value(&mut app_state.f2_state, v.clone(), v);
-        //     }
-        // })
+                    let response = row.response();
+                    if response.clicked() {
+                        app_state.f2_state = (*curr_row).clone();
+                    }
+
+                    if let F1State::Playlists = app_state.f1_state {
+                        response.context_menu(|ui| {
+                            ui.menu_button(" Create Playlist ", |ui| {
+                                ui.label("New playlist name: ");
+                                ui.text_edit_singleline(&mut app_state.new_playlist_name);
+                                if ui.button("Create").clicked() {
+                                    ui.close_menu();
+                                    app_state
+                                        .trackdb
+                                        .create_playlist(app_state.new_playlist_name.clone());
+                                    app_state.new_playlist_name = String::new();
+                                }
+                            });
+                            ui.menu_button(" Delete Playlist ", |ui| {
+                                if ui.button("Confirm").clicked() {
+                                    app_state.f2_state = String::from("Liked");
+                                    app_state.trackdb.remove_playlist(curr_row);
+                                    ui.close_menu();
+                                }
+
+                                if ui.button("Cancel").clicked() {
+                                    ui.close_menu();
+                                }
+                            });
+                        });
+                    }
+                });
+            }
+        });
     });
 }

@@ -2,9 +2,16 @@ use rspotify::ClientCredsSpotify;
 use stopwatch::Stopwatch;
 
 use crate::{
-    db::{TrackDB, TrackInfo}, spotdl::{init_spotify_client, SearchResult}, track_queue::TrackQueue
+    db::{TrackDB, TrackInfo},
+    spotdl::{init_spotify_client, SearchResult},
+    track_queue::TrackQueue,
 };
-use std::{collections::HashMap, path::PathBuf, process::Child, sync::{Arc, Mutex}};
+use std::{
+    collections::HashMap,
+    path::PathBuf,
+    process::Child,
+    sync::{Arc, Mutex},
+};
 
 use super::{
     filter_state::F1State, notification_state::NotificationState, tracklist_state::TracklistState,
@@ -45,9 +52,8 @@ pub struct AppState {
     pub spt_creds: ClientCredsSpotify,
     pub search_results: Option<Vec<SearchResult>>,
     pub selected_result_urls: HashMap<usize, String>,
-    pub pending_download_childs: (String, Vec<Child>)
+    pub pending_download_childs: (String, Vec<Child>),
 }
-
 
 pub struct PrevState {
     pub f1_state: F1State,
@@ -72,7 +78,7 @@ impl Default for AppState {
             f1_state: F1State::Playlists,
             f2_state: (F1State::All, "All".to_string()),
             trackid: None,
-            shuffle: false
+            shuffle: false,
         };
 
         Self {
@@ -96,12 +102,22 @@ impl Default for AppState {
             spt_creds: init_spotify_client(),
             search_results: None,
             selected_result_urls: HashMap::new(),
-            pending_download_childs: (String::new(), Vec::new())
+            pending_download_childs: (String::new(), Vec::new()),
         }
     }
 }
 
 impl AppState {
+    pub fn get_curr_displayed_tracklist(&self) -> Vec<u32> {
+        self.trackdb
+            .track_filter_cache
+            .get(&self.f1_state)
+            .unwrap()
+            .get(&self.f2_state)
+            .unwrap()
+            .clone()
+    }
+
     pub fn get_curr_track_path(&self) -> Option<PathBuf> {
         let curr_trackid = self.trackqueue.get_curr_track();
         if let Some(id) = curr_trackid {
@@ -122,20 +138,6 @@ impl AppState {
             Some(tinfo)
         } else {
             None
-        }
-    }
-
-    pub fn add_curr_tracklist_to_regular_queue(&mut self) {
-        let curr_track_ids = self
-            .trackdb
-            .track_filter_cache
-            .get(&self.f1_state)
-            .unwrap()
-            .get(&self.f2_state)
-            .unwrap();
-
-        for tid in curr_track_ids.iter() {
-            self.trackqueue.add_to_reg_queue(tid.clone());
         }
     }
 }

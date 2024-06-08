@@ -292,12 +292,12 @@ impl TrackDB {
         self.edit_track(t_info);
     }
 
-    pub fn remove_playlist(&mut self, playlist_name: String) {
+    pub fn remove_playlist(&mut self, playlist_name: &String) {
         if playlist_name == "Liked" {
             return;
         }
 
-        let tracks = match self.track_filter_cache.get(&F1State::Playlists).unwrap().get(&playlist_name) {
+        let tracks = match self.track_filter_cache.get(&F1State::Playlists).unwrap().get(playlist_name) {
             Some(v) => v.clone(),
             None => return
         };
@@ -305,7 +305,7 @@ impl TrackDB {
         for id in tracks.iter() {
             self.remove_track(*id, Some(false));
         }
-        self.track_filter_cache.get_mut(&F1State::Playlists).unwrap().remove(&playlist_name);
+        self.track_filter_cache.get_mut(&F1State::Playlists).unwrap().remove(playlist_name);
         self.save_to_file();
     }
 

@@ -9,7 +9,9 @@ use crate::state::state::{AppState, AppStateWrapper};
 use crate::ui::toggle_button::toggle;
 use crate::utils::duration_to_str;
 use crate::{NUM_SEARCH_RESULTS, UI_SLEEP_DURATION_MS};
-use eframe::egui::{self, Color32, FontData, FontDefinitions, Ui, Window};
+use eframe::egui::{
+    self, Align, Color32, FontData, FontDefinitions, Layout, Ui, Vec2, ViewportInfo, Visuals, Window
+};
 use egui_extras::{install_image_loaders, Column, TableBuilder};
 
 use super::{
@@ -23,8 +25,11 @@ use super::{
 fn draw_top_panel(app_state: &mut AppState, ctx: &egui::Context) {
     egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
         egui::menu::bar(ui, |ui| {
-            // TODO: Replace with package name and version number from cargo
-            ui.heading("mprs - v0.1.1");
+            ui.heading(format!(
+                "{} - v{}",
+                env!("CARGO_PKG_NAME"),
+                env!("CARGO_PKG_VERSION")
+            ));
             ui.vertical_centered_justified(|ui| {
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     egui::widgets::global_dark_light_mode_buttons(ui);
@@ -33,51 +38,10 @@ fn draw_top_panel(app_state: &mut AppState, ctx: &egui::Context) {
                     ui.add(toggle(&mut app_state.shuffle));
 
                     if let F1State::Playlists = app_state.f1_state {
-                        ui.style_mut().visuals.widgets.inactive.weak_bg_fill = Color32::BLACK;
-
                         ui.separator();
-                        ui.menu_button(" Create Playlist ", |ui| {
-                            ui.label("New playlist name: ");
-                            ui.text_edit_singleline(&mut app_state.new_playlist_name);
-                            if ui.button("Create").clicked() {
-                                ui.close_menu();
-                                app_state
-                                    .trackdb
-                                    .create_playlist(app_state.new_playlist_name.clone());
-                                app_state.new_playlist_name = String::new();
-                            }
-                        });
-
-                        if app_state.f2_state != "Liked" {
-                            ui.menu_button(" Delete Playlist ", |ui| {
-                                if ui.button("Confirm").clicked() {
-                                    let to_remove = app_state.f2_state.clone();
-                                    app_state.f2_state = String::from("Liked");
-                                    app_state.trackdb.remove_playlist(to_remove);
-                                    ui.close_menu();
-                                }
-
-                                if ui.button("Cancel").clicked() {
-                                    ui.close_menu();
-                                }
-                            });
-                        }
-
-                        ui.menu_button(" Add Track ", |ui| {
-                            ui.horizontal(|ui| {
-                                ui.text_edit_singleline(&mut app_state.new_track_search_term);
-                                if ui.button("Search").clicked() {
-                                    let results = search_tracks(
-                                        app_state.new_track_search_term.clone(),
-                                        NUM_SEARCH_RESULTS,
-                                        &mut app_state.spt_creds,
-                                    );
-
-                                    app_state.search_results = Some(results);
-                                    ui.close_menu();
-                                }
-                            })
-                        });
+                        if ui.button(" Add Track ").clicked() {
+                            app_state.search_results = Some(Vec::new());
+                        };
                     }
                 })
             })
@@ -121,37 +85,57 @@ fn display_search_results_popup(app_state: &mut AppState, ctx: &egui::Context) {
     if let None = app_state.search_results {
         return;
     }
-    let search_results = app_state.search_results.clone().unwrap();
 
     egui::Window::new("Search results")
         .resizable(false)
         .collapsible(false)
+        .min_height(200.0)
         .show(ctx, |ui| {
-            if ui.button("Close").clicked() {
-                app_state.search_results = None;
-            }
-
-            if ui.button("Download").clicked() {
-                app_state.search_results = None;
-                app_state.pending_download_childs.0 = app_state.f2_state.clone();
-                for v in app_state.selected_result_urls.values() {
-                    let child = download_track(v);
-                    app_state.pending_download_childs.1.push(child);
+            ui.horizontal(|ui| {
+                ui.text_edit_singleline(&mut app_state.new_track_search_term);
+                if ui.button("Search").clicked() {
+                    let results = search_tracks(
+                        app_state.new_track_search_term.clone(),
+                        NUM_SEARCH_RESULTS,
+                        &mut app_state.spt_creds,
+                    );
+                    app_state.search_results = Some(results);
                 }
-                app_state.selected_result_urls.clear();
-                app_state.notification.set_message(
-                    format!(
-                        "Downloading tracks, {} remaining...",
-                        app_state.pending_download_childs.1.len()
-                    ),
-                    None,
-                );
-            }
+
+                if ui.button("Download").clicked() {
+                    app_state.search_results = None;
+                    app_state.pending_download_childs.0 = app_state.f2_state.clone();
+                    for v in app_state.selected_result_urls.values() {
+                        let child = download_track(v);
+                        app_state.pending_download_childs.1.push(child);
+                    }
+                    app_state.selected_result_urls.clear();
+                    app_state.notification.set_message(
+                        format!(
+                            "Downloading tracks, {} remaining...",
+                            app_state.pending_download_childs.1.len()
+                        ),
+                        None,
+                    );
+                }
+                if ui.button("Close").clicked() {
+                    app_state.search_results = None;
+                }
+            });
+
             draw_search_result_table(ui, app_state);
         });
 }
 
 fn draw_search_result_table(ui: &mut Ui, app_state: &mut AppState) {
+    if app_state.search_results.is_none() {
+        return;
+    }
+    let result_vec = app_state.search_results.clone().unwrap();
+    if result_vec.is_empty() {
+        return;
+    }
+
     let available_height = ui.available_height();
     let mut table = TableBuilder::new(ui)
         .striped(true)
@@ -181,11 +165,6 @@ fn draw_search_result_table(ui: &mut Ui, app_state: &mut AppState) {
         .column(Column::remainder())
         .min_scrolled_height(0.0)
         .max_scroll_height(available_height);
-
-    if app_state.search_results.is_none() {
-        return;
-    }
-    let result_vec = app_state.search_results.clone().unwrap();
 
     table = table.sense(egui::Sense::click());
     table
@@ -283,13 +262,7 @@ pub fn check_download_progress(app_state: &mut AppState) {
                 .add_all_tracks(Some(app_state.pending_download_childs.0.clone()));
             app_state.pending_download_childs = (String::new(), Vec::new());
 
-            let ids = app_state
-                .trackdb
-                .track_filter_cache
-                .get(&app_state.f1_state)
-                .unwrap()
-                .get(&app_state.f2_state)
-                .unwrap();
+            let ids = app_state.get_curr_displayed_tracklist();
 
             let present_ids = app_state
                 .tracklist_state
@@ -317,6 +290,26 @@ pub fn check_download_progress(app_state: &mut AppState) {
     }
 }
 
+pub fn setup_fn(app_state: &mut AppState, ctx: &egui::Context) {
+    if let None = app_state.ctx {
+        install_image_loaders(ctx);
+        app_state.ctx = Some(ctx.clone());
+    }
+}
+
+pub fn update_shuffle(app_state: &mut AppState) {
+    if app_state.shuffle != app_state.prev_state.shuffle {
+        if app_state.shuffle {
+            app_state.trackqueue.shuffle_reg_queue();
+        } else {
+            app_state
+                .trackqueue
+                .add_ordered_tracklist_to_reg_queue(app_state.get_curr_displayed_tracklist());
+        }
+        app_state.prev_state.shuffle = app_state.shuffle;
+    }
+}
+
 impl eframe::App for AppStateWrapper {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         ctx.request_repaint_after(Duration::from_millis(UI_SLEEP_DURATION_MS));
@@ -324,10 +317,7 @@ impl eframe::App for AppStateWrapper {
         let app_state_clone = Arc::clone(&self.app_state);
         let mut app_state_g = app_state_clone.lock().unwrap();
 
-        if let None = app_state_g.ctx {
-            install_image_loaders(ctx);
-            app_state_g.ctx = Some(ctx.clone());
-        }
+        setup_fn(&mut app_state_g, ctx);
 
         draw_top_panel(&mut app_state_g, ctx);
         draw_left_panel(&mut app_state_g, ctx);
@@ -335,13 +325,8 @@ impl eframe::App for AppStateWrapper {
         draw_main_panel(&mut app_state_g, ctx);
         display_search_results_popup(&mut app_state_g, ctx);
 
+        update_shuffle(&mut app_state_g);
         check_download_progress(&mut app_state_g);
-
-        if app_state_g.shuffle != app_state_g.prev_state.shuffle {
-            app_state_g.trackqueue.shuffle_reg_queue();
-            app_state_g.prev_state.shuffle = app_state_g.shuffle;
-        }
-
         app_state_g.notification.update_message();
     }
 
@@ -354,7 +339,6 @@ impl eframe::App for AppStateWrapper {
             }
             None => {}
         };
-
         exit(0);
     }
 }
