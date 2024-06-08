@@ -94,13 +94,24 @@ fn table_ui(app_state: &mut AppState, ui: &mut egui::Ui) {
                     if response.clicked() {
                         app_state.trackqueue.empty_reg_queue();
 
-                        let curr_track_ids = app_state
+                        let mut curr_track_ids = app_state
                             .trackdb
                             .track_filter_cache
                             .get(&app_state.f1_state)
                             .unwrap()
                             .get(&app_state.f2_state)
-                            .unwrap();
+                            .unwrap()
+                            .clone();
+
+                        let mut before_ids = Vec::new();
+                        loop {
+                            let tid = curr_track_ids.remove(0);
+                            if tid == curr_row.id {
+                                break;
+                            }
+                            before_ids.push(tid);
+                        }
+                        curr_track_ids.append(&mut before_ids);
 
                         for tid in curr_track_ids.iter() {
                             if *tid != curr_row.id {

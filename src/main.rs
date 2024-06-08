@@ -37,8 +37,37 @@ const NUM_SEARCH_RESULTS: u32 = 10;
 const MULTIPLE_JUMP_DISTANCE: i32 = 20;
 
 // TODO: Unicode font rendering
-// TODO: Allow text in table to be clickable
-// TODO: Fix f1 and f2 panel buttons to be table rows instead. Make text clickable also
+// TODO: Write functions unshuffle add tracks to queue (add in order and skip until curr track
+// reached)
+// TODO: Clean up code and create functions for common operations (accessing curr track list)
+// TODO: Create playlist with spotify link to pull all tracks (or add import playlist button to add
+// multiple tracks to existing playlist)
+// TODO: Add feature to edit playlist name
+// TODO: Put some hardcoded values into constants
+// TODO: Add option to normalize track volume
+// TODO: Set a consistent audio format for song downloads with spotdl
+// TODO: Store spotify trackid with each track to identify when a track is already downloaded, so
+// adding the same track to multiple playlists does not do multiple downloads
+// TODO: Find out how to change column scheme to black/dark blue palete and not beige ish
+// TODO: Improve first run experience by adding options to select track download dir and manage
+// permission stuff
+// TODO: Add playlist stats in bottom bar (total number of tracks + total duration)
+// TODO: Maybe add a script to download deps (spotdl/python which is needed for spotdl)
+// TODO: VISUALIZER
+// TODO: Make queue and visualizer windows optional (keybind toggle?)
+// TODO: Replace empty table on empty playlist with no tracks message
+// TODO: Add a way to see the current queue and played tracks history
+// TODO: Move search for add tracks to popup window
+// TODO: Add spacing between columns in tracklist
+// TODO: Only update screen when user is focused on it
+// TODO: Replace package name/version/window title with crate name and version from cargo
+// TODO: Make button coloring and size more consistent
+// TODO: Make panel sizing a fraction of window sizing for more consistency (or allow resizing)
+// TODO: Optimize update functions to be minimal so that frames can be rendered with minimal cpu
+// usage
+// TODO: Add pausing with space bar
+// TODO: Change dock icon
+// NOTE: Maybe add album covers to tracklist? (May affect performance poorly)
 
 fn main() {
     init_functions();
