@@ -1,10 +1,10 @@
 use log::debug;
 use stopwatch::Stopwatch;
 use crate::track_queue::TrackQueue;
-use crate::tui::update;
-use crate::utils::{get_ipc_path, parse_bool};
+use crate::utils::{get_album_cover, get_ipc_path, parse_bool};
 use crate::PREV_SAME_TRACK_TIMEOUT_S;
-use crate::{state::AppState, utils::get_luascript_path};
+use crate::utils::get_luascript_path;
+use crate::state::state::AppState;
 use std::fs::read_to_string;
 use std::process::{exit, Command};
 use std::thread::sleep;
@@ -21,20 +21,20 @@ pub fn kill_track(mpv_child: Arc<Mutex<Child>>) {
     child.kill().unwrap();
 }
 
-pub fn wait_for_player(app_state: Arc<Mutex<AppState>>) {
-    let mut app_state_rc = app_state.lock().unwrap();
-    if let Some(child) = &mut app_state_rc.mpv_child {
-        child.wait().unwrap();
-    }
-}
+// pub fn wait_for_player(app_state: Arc<Mutex<AppState>>) {
+//     let mut app_state_rc = app_state.lock().unwrap();
+//     if let Some(child) = &mut app_state_rc.mpv_child {
+//         child.wait().unwrap();
+//     }
+// }
 
-pub fn initialize_player(app_state: &mut AppState) {
-    if let Some(child) = &mut app_state.mpv_child {
-        child.kill().unwrap();
-    }
-    app_state.track_queue.next_track();
-    play_track(app_state);
-}
+// pub fn initialize_player(app_state: &mut AppState) {
+//     if let Some(child) = &mut app_state.mpv_child {
+//         child.kill().unwrap();
+//     }
+//     app_state.track_queue.next_track();
+//     play_track(app_state);
+// }
 
 pub fn play_track(app_state: &mut AppState) {
     let tp_opt = app_state.get_curr_track_path();
@@ -54,13 +54,13 @@ pub fn play_track(app_state: &mut AppState) {
         child.kill().unwrap();
     }
 
-    app_state.curr_track_info = match app_state.get_curr_track_info() {
+    app_state.curr_trackinfo = match app_state.get_curr_track_info() {
         Some(t_info_ref) => Some(t_info_ref.clone()),
         None => None
     };
 
-    app_state.update_curr_album_cover();
-    update(app_state, None, true);
+    let v = get_album_cover(&app_state.get_curr_track_path().unwrap());
+    app_state.curr_albumcover = Some(Arc::from(v));
 
     app_state.mpv_child = Some(
         Command::new("mpv")
@@ -77,19 +77,23 @@ pub fn play_track(app_state: &mut AppState) {
             .unwrap(),
     );
     app_state.track_clock = Stopwatch::start_new();
+
+    if let Some(ctx) = &app_state.ctx {
+        ctx.request_repaint();
+    }
 }
 
 pub fn next_track(app_state: &mut AppState) {
-    app_state.track_queue.next_track();
+    app_state.trackqueue.next_track();
     play_track(app_state);
 }
 
 pub fn prev_track(app_state: &mut AppState) {
-    app_state.track_queue.prev_track();
+    app_state.trackqueue.prev_track();
     play_track(app_state);
 }
 
-pub async fn player_handler<'a>(app_state: Arc<Mutex<AppState<'a>>>, sleep_millis: u64) {
+pub async fn player_handler<'a>(app_state: Arc<Mutex<AppState>>, sleep_millis: u64) {
     let ipc_fp = get_ipc_path();
     let mut prev_file_contents = String::new();
     loop {

@@ -1,7 +1,7 @@
 use log::debug;
 use serde::{Deserialize, Serialize};
 use std::fs::remove_file;
-use crate::utils::{get_cache_file_path, get_metadata, get_music_dir, get_newtracks_dir};
+use crate::{state::filter_state::F1State, utils::{get_cache_file_path, get_metadata, get_music_dir, get_newtracks_dir}};
 use std::{collections::BTreeMap, fs::{read_dir, File, OpenOptions}, io::{Write, Read}, path::PathBuf};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -29,7 +29,7 @@ impl TrackInfo {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TrackDB {
-    pub track_filter_cache: BTreeMap<String, BTreeMap<String, Vec<u32>>>,
+    pub track_filter_cache: BTreeMap<F1State, BTreeMap<String, Vec<u32>>>,
     pub trackmap: BTreeMap<u32, TrackInfo>,
     pub max_id: u32,
 }
@@ -49,15 +49,19 @@ impl TrackDB {
 
         let mut hm: BTreeMap<String, Vec<u32>> = BTreeMap::new();
         hm.insert("Liked".to_string(), Vec::new());
-        m.insert("Playlists".to_string(), hm);
+        m.insert(F1State::Playlists, hm);
 
         let mut hm: BTreeMap<String, Vec<u32>> = BTreeMap::new();
         hm.insert("None".to_string(), Vec::new());
-        m.insert("Albums".to_string(), hm);
+        m.insert(F1State::Albums, hm);
 
         let mut hm: BTreeMap<String, Vec<u32>> = BTreeMap::new();
         hm.insert("None".to_string(), Vec::new());
-        m.insert("Artists".to_string(), hm);
+        m.insert(F1State::Artists, hm);
+
+        let mut hm: BTreeMap<String, Vec<u32>> = BTreeMap::new();
+        hm.insert("All".to_string(), Vec::new());
+        m.insert(F1State::All, hm);
 
         TrackDB {
             track_filter_cache: m,
@@ -109,7 +113,7 @@ impl TrackDB {
         let album = track_info.album.clone();
 
         // update playlist_map
-        let playlist_map = self.track_filter_cache.get_mut("Playlists").unwrap();
+        let playlist_map = self.track_filter_cache.get_mut(&F1State::Playlists).unwrap();
         if playlist_map.contains_key(&playlist) {
             playlist_map.get_mut(&playlist).unwrap().push(new_track_id);
         } else {
@@ -117,7 +121,7 @@ impl TrackDB {
         }
 
         // update artist_map
-        let artist_map = self.track_filter_cache.get_mut("Artists").unwrap();
+        let artist_map = self.track_filter_cache.get_mut(&F1State::Artists).unwrap();
         match artists {
             Some(ar) => {
                 for a in ar.iter() {
@@ -135,7 +139,7 @@ impl TrackDB {
         }
 
         // update album map
-        let album_map = self.track_filter_cache.get_mut("Albums").unwrap();
+        let album_map = self.track_filter_cache.get_mut(&F1State::Albums).unwrap();
         match album {
             Some(a) => {
                 if album_map.contains_key(&a) {
@@ -149,6 +153,10 @@ impl TrackDB {
                 v.push(new_track_id);
             }
         }
+
+        // update all map
+        let all_map = self.track_filter_cache.get_mut(&F1State::All).unwrap().get_mut("All").unwrap();
+        all_map.push(new_track_id);
     }
 
     fn add_track_helper(&mut self, track_path: &PathBuf, playlist: Option<String>) {
@@ -210,11 +218,15 @@ impl TrackDB {
 
     fn remove_track_from_filter_cache(&mut self, t_info: &TrackInfo) {
         let t_id = t_info.id;
-        let playlist_map = self.track_filter_cache.get_mut("Playlists").unwrap();
+        let playlist_map = self.track_filter_cache.get_mut(&F1State::Playlists).unwrap();
         let p = playlist_map.get_mut(&t_info.playlist).unwrap();
         p.retain(|&x| x != t_id);
 
-        let album_map = self.track_filter_cache.get_mut("Albums").unwrap();
+        let all_map = self.track_filter_cache.get_mut(&F1State::All).unwrap();
+        let p = all_map.get_mut("All").unwrap();
+        p.retain(|&x| x != t_id);
+
+        let album_map = self.track_filter_cache.get_mut(&F1State::Albums).unwrap();
         let p = album_map.get_mut(&t_info.album.clone().unwrap_or("None".to_string())).unwrap();
         p.retain(|&x| x != t_id);
 
@@ -224,7 +236,7 @@ impl TrackDB {
             }
         }
 
-        let artist_map = self.track_filter_cache.get_mut("Artists").unwrap();
+        let artist_map = self.track_filter_cache.get_mut(&F1State::Artists).unwrap();
         match t_info.artists.clone() {
             Some(ar) => {
                 for a in ar.iter() {
@@ -280,12 +292,12 @@ impl TrackDB {
         self.edit_track(t_info);
     }
 
-    pub fn remove_playlist(&mut self, playlist_name: String) {
+    pub fn remove_playlist(&mut self, playlist_name: &String) {
         if playlist_name == "Liked" {
             return;
         }
 
-        let tracks = match self.track_filter_cache.get("Playlists").unwrap().get(&playlist_name) {
+        let tracks = match self.track_filter_cache.get(&F1State::Playlists).unwrap().get(playlist_name) {
             Some(v) => v.clone(),
             None => return
         };
@@ -293,7 +305,18 @@ impl TrackDB {
         for id in tracks.iter() {
             self.remove_track(*id, Some(false));
         }
-        self.track_filter_cache.get_mut("Playlists").unwrap().remove(&playlist_name);
+        self.track_filter_cache.get_mut(&F1State::Playlists).unwrap().remove(playlist_name);
+        self.save_to_file();
+    }
+
+    pub fn create_playlist(&mut self, playlist_name: String) {
+        let pmap = self.track_filter_cache.get_mut(&F1State::Playlists).unwrap();
+        let existing_playlists = pmap.keys().map(|x| x.clone()).collect::<Vec<String>>();
+        if existing_playlists.contains(&playlist_name) {
+            return
+        }
+
+        pmap.insert(playlist_name, Vec::new());
         self.save_to_file();
     }
 }

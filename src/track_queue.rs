@@ -100,4 +100,23 @@ impl TrackQueue {
         }
         debug!("{:?}", self);
     }
+
+    pub fn add_ordered_tracklist_to_reg_queue(&mut self, mut tids: Vec<u32>) {
+        if let Some(tid) = self.get_curr_track() {
+            self.empty_reg_queue();
+            let mut before_tracks = Vec::new();
+            loop {
+                let removed_tid = tids.remove(0);
+                if removed_tid == tid {
+                    break
+                }
+                before_tracks.push(removed_tid);
+            }
+
+            tids.append(&mut before_tracks);
+            for tid in tids.into_iter() {
+                self.add_to_reg_queue(tid);
+            }
+        }
+    }
 }
